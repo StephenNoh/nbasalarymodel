@@ -613,15 +613,14 @@
                             const adjustedDarko = darko + adjustment;
                             let salary = (games * minutes / 1475 * (adjustedDarko + 3.0)) * 4.32;
                             
-                            // Give more value to top end wins
-                            if (adjustedDarko > 4) {
-                                salary = salary * 1.09; // 9% boost for elite players
-                            } else if (adjustedDarko > 2) {
-                                salary = salary * 1.04; // 4% boost
-                            } else if (adjustedDarko > 1) {
-                                salary = salary * 1.02; // 2% boost
-                            } else if (adjustedDarko < 1) {
-                                salary = salary * 0.90; // 10% reduction
+                            // Give more value to top end wins and less to lower end wins
+                            const boostFactor = Math.pow(Math.abs(adjustedDarko) / 4, 1.2) * 0.10;
+                            const cappedBoost = Math.min(boostFactor, 0.10); // Cap boost at 10%
+
+                            if (adjustedDarko > 0) {
+                                salary = salary * (1 + cappedBoost);
+                            } else if (adjustedDarko < 0) {
+                                salary = salary * (1 - cappedBoost);
                             }
                             
                             if (salary < 3.0) return "Minimum Salary";
