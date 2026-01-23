@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Salary Model</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .player-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: 1fr;
+        }
+    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const Search = ({ size = 20 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </svg>
+        );
+
+        const Plus = ({ size = 20 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+
+        const Trash2 = ({ size = 20 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+    const PLAYER_DATA = [
+        { name: "Nikola Jokic", team: "DEN", age: 30, darko: 6.75, actualSalary: 55.2, futureSalaries: { "2026-27": 59.03, "2027-28": 62.84 } },
+        { name: "Shai Gilgeous-Alexander", team: "OKC", age: 27, darko: 6.02, actualSalary: 38.3, futureSalaries: { "2026-27": 40.81, "2027-28": 61.01, "2028-29": 65.89, "2029-30": 70.77, "2030-31": 75.65 } },
+        { name: "Giannis Antetokounmpo", team: "MIL", age: 31, darko: 5.8, actualSalary: 54.1, futureSalaries: { "2026-27": 58.46, "2027-28": 62.79 } },
+        { name: "Jayson Tatum", team: "BOS", age: 27, darko: 5, actualSalary: 54.1, futureSalaries: { "2026-27": 58.46, "2027-28": 62.79, "2028-29": 67.12, "2029-30": 71.45, "2030-31": 75.78 } },
+        { name: "Luka Doncic", team: "LAL", age: 26, darko: 4.29, actualSalary: 46.0, futureSalaries: { "2026-27": 49.80, "2027-28": 53.78, "2028-29": 57.77 } },
+        { name: "Kawhi Leonard", team: "LAC", age: 34, darko: 6.04, actualSalary: 50.0, futureSalaries: { "2026-27": 50.30 } },
+        { name: "Anthony Edwards", team: "MIN", age: 24, darko: 4.8, actualSalary: 45.6, futureSalaries: { "2026-27": 48.92, "2027-28": 52.30, "2028-29": 55.67 } },
+        { name: "Victor Wembanyama", team: "SAS", age: 22, darko: 5.46, actualSalary: 13.4, futureSalaries: { "2026-27": 16.87 } },
+        { name: "Donovan Mitchell", team: "CLE", age: 29, darko: 5.38, actualSalary: 46.4, futureSalaries: { "2026-27": 50.11, "2027-28": 53.82 } },
+        { name: "Tyrese Haliburton", team: "IND", age: 25, darko: 3.63, actualSalary: 45.6, futureSalaries: { "2026-27": 48.92, "2027-28": 52.30, "2028-29": 55.67 } },
+        { name: "Evan Mobley", team: "CLE", age: 24, darko: 2.67, actualSalary: 46.4, futureSalaries: { "2026-27": 50.11, "2027-28": 53.82, "2028-29": 57.53, "2029-30": 61.24 } },
+        { name: "Jamal Murray", team: "DEN", age: 28, darko: 2.67, actualSalary: 46.4, futureSalaries: { "2026-27": 50.11, "2027-28": 53.82, "2028-29": 57.53 } },
+        { name: "Stephen Curry", team: "GSW", age: 37, darko: 2.52, actualSalary: 59.6, futureSalaries: { "2026-27": 62.59 } },
+        { name: "Rudy Gobert", team: "MIN", age: 33, darko: 2.92, actualSalary: 35.0, futureSalaries: { "2026-27": 36.50, "2027-28": 38.00 } },
+        { name: "Jarrett Allen", team: "CLE", age: 27, darko: 2.66, actualSalary: 20.0, futureSalaries: { "2026-27": 28.00, "2027-28": 30.24, "2028-29": 32.48 } },
+        { name: "Aaron Gordon", team: "DEN", age: 30, darko: 2.96, actualSalary: 22.8, futureSalaries: { "2026-27": 33.66, "2027-28": 36.35, "2028-29": 39.04 } },
+        { name: "James Harden", team: "LAC", age: 36, darko: 3.1, actualSalary: 39.2, futureSalaries: { "2026-27": 42.32 } },
+        { name: "Anthony Davis", team: "DAL", age: 32, darko: 2.64, actualSalary: 54.1, futureSalaries: { "2026-27": 58.46, "2027-28": 62.79 } },
+        { name: "Chet Holmgren", team: "OKC", age: 23, darko: 3.49, actualSalary: 13.7, futureSalaries: { "2026-27": 41.50, "2027-28": 44.82, "2028-29": 48.14, "2029-30": 51.46, "2030-31": 54.78 } },
+        { name: "Jimmy Butler", team: "GSW", age: 36, darko: 2.81, actualSalary: 54.1, futureSalaries: { "2026-27": 56.83 } },
+        { name: "Jalen Brunson", team: "NYK", age: 29, darko: 2.3, actualSalary: 34.9, futureSalaries: { "2026-27": 37.74, "2027-28": 40.54, "2028-29": 43.33 } },
+        { name: "OG Anunoby", team: "NYK", age: 28, darko: 2.26, actualSalary: 39.6, futureSalaries: { "2026-27": 42.50, "2027-28": 45.43, "2028-29": 48.36 } },
+        { name: "Isaiah Hartenstein", team: "OKC", age: 27, darko: 2.57, actualSalary: 28.5, futureSalaries: { "2026-27": 28.50 } },
+        { name: "Joel Embiid", team: "PHI", age: 31, darko: 2.94, actualSalary: 55.2, futureSalaries: { "2026-27": 58.10, "2027-28": 62.75, "2028-29": 67.40 } },
+        { name: "Karl-Anthony Towns", team: "NYK", age: 30, darko: 2.11, actualSalary: 53.1, futureSalaries: { "2026-27": 57.08, "2027-28": 61.02 } },
+        { name: "Jaylen Brown", team: "BOS", age: 29, darko: 2.57, actualSalary: 53.1, futureSalaries: { "2026-27": 57.08, "2027-28": 61.02, "2028-29": 64.95 } },
+        { name: "Kevin Durant", team: "HOU", age: 37, darko: 3.05, actualSalary: 54.7, futureSalaries: { "2026-27": 43.90, "2027-28": 46.10 } },
+        { name: "Ivica Zubac", team: "LAC", age: 28, darko: 2.39, actualSalary: 18.1, futureSalaries: { "2026-27": 19.55, "2027-28": 21.00 } },
+        { name: "Jakob Poeltl", team: "TOR", age: 30, darko: 2.13, actualSalary: 19.5, futureSalaries: { "2026-27": 19.50, "2027-28": 27.30, "2028-29": 29.48, "2029-30": 27.30 } },
+        { name: "Tari Eason", team: "HOU", age: 24, darko: 1.93, actualSalary: 5.7, futureSalaries: {} },
+        { name: "Alex Caruso", team: "OKC", age: 31, darko: 2.34, actualSalary: 18.1, futureSalaries: { "2026-27": 19.55, "2027-28": 21.00, "2028-29": 22.45 } },
+        { name: "Jalen Williams", team: "OKC", age: 24, darko: 1.62, actualSalary: 6.6, futureSalaries: { "2026-27": 41.50, "2027-28": 44.82, "2028-29": 48.14, "2029-30": 51.46, "2030-31": 54.78 } },
+        { name: "Bam Adebayo", team: "MIA", age: 28, darko: 2.34, actualSalary: 37.1, futureSalaries: { "2026-27": 49.80, "2027-28": 53.78, "2028-29": 57.77 } },
+        { name: "Austin Reaves", team: "LAL", age: 27, darko: 2.25, actualSalary: 13.9, futureSalaries: { "2026-27": 14.90 } },
+        { name: "Pascal Siakam", team: "IND", age: 31, darko: 1.81, actualSalary: 45.6, futureSalaries: { "2026-27": 48.92, "2027-28": 52.30 } },
+        { name: "Jalen Suggs", team: "ORL", age: 24, darko: 2.17, actualSalary: 35.0, futureSalaries: { "2026-27": 32.40, "2027-28": 29.60, "2028-29": 26.80, "2029-30": 26.70 } },
+        { name: "Scottie Barnes", team: "TOR", age: 24, darko: 1.76, actualSalary: 38.7, futureSalaries: { "2026-27": 41.75, "2027-28": 44.85, "2028-29": 47.94, "2029-30": 51.03 } },
+        { name: "Alperen Sengun", team: "HOU", age: 23, darko: 1.9, actualSalary: 33.9, futureSalaries: { "2026-27": 35.64, "2027-28": 37.34, "2028-29": 39.04, "2029-30": 39.04 } },
+        { name: "Mitchell Robinson", team: "NYK", age: 27, darko: 1.83, actualSalary: 13.0, futureSalaries: {} },
+        { name: "Devin Booker", team: "PHO", age: 29, darko: 2.27, actualSalary: 53.1, futureSalaries: { "2026-27": 57.08, "2027-28": 61.02, "2028-29": 64.07, "2029-30": 69.19 } },
+        { name: "Jalen Johnson", team: "ATL", age: 24, darko: 1.01, actualSalary: 30.0, futureSalaries: { "2026-27": 30.00, "2027-28": 30.00, "2028-29": 30.00, "2029-30": 30.00 } },
+        { name: "Fred VanVleet", team: "HOU", age: 31, darko: 1.87, actualSalary: 25.0, futureSalaries: { "2026-27": 25.00 } },
+        { name: "Steven Adams", team: "HOU", age: 32, darko: 1.92, actualSalary: 14.1, futureSalaries: { "2026-27": 13.00, "2027-28": 11.87 } },
+        { name: "Kyrie Irving", team: "DAL", age: 33, darko: 1.55, actualSalary: 36.6, futureSalaries: { "2026-27": 39.49, "2027-28": 42.42 } },
+        { name: "Derrick White", team: "BOS", age: 31, darko: 2.42, actualSalary: 28.1, futureSalaries: { "2026-27": 30.35, "2027-28": 32.60, "2028-29": 34.84 } },
+        { name: "Draymond Green", team: "GSW", age: 35, darko: 1.85, actualSalary: 25.9, futureSalaries: { "2026-27": 27.68 } },
+        { name: "Deni Avdija", team: "POR", age: 25, darko: 1.91, actualSalary: 14.4, futureSalaries: { "2026-27": 13.13, "2027-28": 11.88 } },
+        { name: "LeBron James", team: "LAL", age: 41, darko: 1.25, actualSalary: 52.6, futureSalaries: {} },
+        { name: "Paul Reed", team: "DET", age: 26, darko: 1.56, actualSalary: 5.3, futureSalaries: { "2026-27": 5.60 } },
+        { name: "Aaron Wiggins", team: "OKC", age: 27, darko: 1.65, actualSalary: 10.1, futureSalaries: { "2026-27": 9.22, "2027-28": 8.35, "2028-29": 8.35 } },
+        { name: "Brandon Clarke", team: "MEM", age: 29, darko: 1.56, actualSalary: 12.5, futureSalaries: { "2026-27": 12.50 } },
+        { name: "Franz Wagner", team: "ORL", age: 24, darko: 1.57, actualSalary: 38.7, futureSalaries: { "2026-27": 41.75, "2027-28": 44.85, "2028-29": 47.94, "2029-30": 51.03 } },
+        { name: "Cade Cunningham", team: "DET", age: 24, darko: 2.8, actualSalary: 46.4, futureSalaries: { "2026-27": 50.11, "2027-28": 53.82, "2028-29": 57.53, "2029-30": 61.24 } },
+        { name: "Payton Pritchard", team: "BOS", age: 28, darko: 0.96, actualSalary: 7.2, futureSalaries: { "2026-27": 7.77, "2027-28": 8.30 } },
+        { name: "Tyler Herro", team: "MIA", age: 26, darko: 1.26, actualSalary: 31.0, futureSalaries: { "2026-27": 33.00 } },
+        { name: "Jonathan Isaac", team: "ORL", age: 28, darko: 1.45, actualSalary: 15.0, futureSalaries: { "2026-27": 14.50, "2027-28": 14.50, "2028-29": 15.00 } },
+        { name: "Zion Williamson", team: "NOP", age: 25, darko: 0.5, actualSalary: 39.4, futureSalaries: { "2026-27": 42.17, "2027-28": 44.89 } },
+        { name: "Tyrese Maxey", team: "PHI", age: 25, darko: 2.42, actualSalary: 38.0, futureSalaries: { "2026-27": 40.77, "2027-28": 43.58, "2028-29": 46.39 } },
+        { name: "Josh Minott", team: "BOS", age: 23, darko: 1.17, actualSalary: 2.4, futureSalaries: { "2026-27": 2.58 } },
+        { name: "Jaden McDaniels", team: "MIN", age: 25, darko: 1.41, actualSalary: 24.4, futureSalaries: { "2026-27": 26.20, "2027-28": 28.01, "2028-29": 29.81 } },
+        { name: "Amen Thompson", team: "HOU", age: 22, darko: 1.33, actualSalary: 9.7, futureSalaries: { "2026-27": 12.26 } },
+        { name: "Jaren Jackson Jr.", team: "MEM", age: 26, darko: 1.27, actualSalary: 35.0, futureSalaries: { "2026-27": 49.00, "2027-28": 50.50, "2028-29": 52.00, "2029-30": 53.50 } },
+        { name: "Kevin Porter Jr.", team: "MIL", age: 25, darko: 1.14, actualSalary: 5.1, futureSalaries: { "2026-27": 5.39 } },
+        { name: "Jordan Walsh", team: "BOS", age: 21, darko: 0.58, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Michael Porter Jr.", team: "BKN", age: 27, darko: 1.62, actualSalary: 38.3, futureSalaries: { "2026-27": 40.81 } },
+        { name: "Robert Williams III", team: "POR", age: 28, darko: 1.75, actualSalary: 13.3, futureSalaries: {} },
+        { name: "Dwight Powell", team: "DAL", age: 34, darko: 1.6, actualSalary: 4.0, futureSalaries: {} },
+        { name: "Ja Morant", team: "MEM", age: 26, darko: 1.04, actualSalary: 39.4, futureSalaries: { "2026-27": 42.17, "2027-28": 44.89 } },
+        { name: "Paul George", team: "PHI", age: 35, darko: 1.78, actualSalary: 51.7, futureSalaries: { "2026-27": 54.13, "2027-28": 56.59 } },
+        { name: "Collin Gillespie", team: "PHO", age: 26, darko: 1.73, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Goga Bitadze", team: "ORL", age: 26, darko: 0.99, actualSalary: 8.3, futureSalaries: { "2026-27": 7.61 } },
+        { name: "Kenrich Williams", team: "OKC", age: 31, darko: 1.48, actualSalary: 7.2, futureSalaries: { "2026-27": 7.16 } },
+        { name: "Josh Hart", team: "NYK", age: 30, darko: 0.58, actualSalary: 19.5, futureSalaries: { "2026-27": 20.92, "2027-28": 22.38 } },
+        { name: "Ty Jerome", team: "MEM", age: 28, darko: 0.78, actualSalary: 8.8, futureSalaries: { "2026-27": 9.22, "2027-28": 9.66 } },
+        { name: "Donte DiVincenzo", team: "MIN", age: 29, darko: 1.65, actualSalary: 12.0, futureSalaries: { "2026-27": 12.54 } },
+        { name: "Reed Sheppard", team: "HOU", age: 21, darko: 0.56, actualSalary: 10.6, futureSalaries: { "2026-27": 11.11, "2027-28": 14.04 } },
+        { name: "Derrick Jones Jr.", team: "LAC", age: 28, darko: 1.13, actualSalary: 10.0, futureSalaries: { "2026-27": 10.48 } },
+        { name: "Christian Braun", team: "DEN", age: 24, darko: 0.68, actualSalary: 4.9, futureSalaries: { "2026-27": 21.55, "2027-28": 23.28, "2028-29": 25.00, "2029-30": 26.72 } },
+        { name: "LaMelo Ball", team: "CHO", age: 24, darko: 1.98, actualSalary: 38.0, futureSalaries: { "2026-27": 40.77, "2027-28": 43.58, "2028-29": 46.39 } },
+        { name: "Luke Kornet", team: "SAS", age: 30, darko: 1, actualSalary: 11.0, futureSalaries: { "2026-27": 10.45, "2027-28": 9.90, "2028-29": 9.35 } },
+        { name: "Lauri Markkanen", team: "UTA", age: 28, darko: 1.57, actualSalary: 46.4, futureSalaries: { "2026-27": 46.11, "2027-28": 49.82, "2028-29": 53.54 } },
+        { name: "Herbert Jones", team: "NOP", age: 27, darko: 1.03, actualSalary: 13.9, futureSalaries: { "2026-27": 14.90, "2027-28": 20.86, "2028-29": 22.53, "2029-30": 24.20 } },
+        { name: "Kristaps Porzingis", team: "ATL", age: 30, darko: 1.64, actualSalary: 30.7, futureSalaries: {} },
+        { name: "De'Aaron Fox", team: "SAS", age: 28, darko: 1.43, actualSalary: 37.1, futureSalaries: { "2026-27": 49.80, "2027-28": 53.78, "2028-29": 57.77, "2029-30": 61.75 } },
+        { name: "Damian Lillard", team: "POR", age: 35, darko: 0.31, actualSalary: 14.1, futureSalaries: { "2026-27": 13.40, "2027-28": 14.10 } },
+        { name: "Jalen Smith", team: "CHI", age: 25, darko: 1.81, actualSalary: 9.0, futureSalaries: { "2026-27": 9.43 } },
+        { name: "Day'Ron Sharpe", team: "BRK", age: 24, darko: 1.84, actualSalary: 6.3, futureSalaries: { "2026-27": 6.25 } },
+        { name: "Luguentz Dort", team: "OKC", age: 26, darko: 0.66, actualSalary: 18.2, futureSalaries: { "2026-27": 18.22 } },
+        { name: "Jarred Vanderbilt", team: "LAL", age: 26, darko: 1.04, actualSalary: 11.6, futureSalaries: { "2026-27": 12.43, "2027-28": 13.29 } },
+        { name: "Jaylon Tyson", team: "CLE", age: 23, darko: 0.31, actualSalary: 3.5, futureSalaries: { "2026-27": 3.66, "2027-28": 5.64 } },
+        { name: "Isaiah Joe", team: "OKC", age: 26, darko: 0.91, actualSalary: 12.4, futureSalaries: { "2026-27": 11.32, "2027-28": 11.32 } },
+        { name: "Dereck Lively II", team: "DAL", age: 21, darko: 1.04, actualSalary: 5.3, futureSalaries: { "2026-27": 7.24 } },
+        { name: "Norman Powell", team: "MIA", age: 32, darko: 0.94, actualSalary: 20.5, futureSalaries: {} },
+        { name: "Scotty Pippen Jr.", team: "MEM", age: 25, darko: 1.06, actualSalary: 2.3, futureSalaries: { "2026-27": 2.46, "2027-28": 2.79 } },
+        { name: "Sandro Mamukelashvili", team: "TOR", age: 26, darko: 1.28, actualSalary: 2.5, futureSalaries: { "2026-27": 2.80 } },
+        { name: "Moussa Diabate", team: "CHO", age: 24, darko: 0.49, actualSalary: 2.3, futureSalaries: { "2026-27": 2.46 } },
+        { name: "Toumani Camara", team: "POR", age: 25, darko: 0.38, actualSalary: 2.2, futureSalaries: { "2026-27": 18.08, "2027-28": 19.53, "2028-29": 20.97, "2029-30": 22.42 } },
+        { name: "Grayson Allen", team: "PHO", age: 30, darko: 0.17, actualSalary: 16.9, futureSalaries: { "2026-27": 18.13, "2027-28": 19.38 } },
+        { name: "Mikal Bridges", team: "NYK", age: 29, darko: 0.38, actualSalary: 24.9, futureSalaries: { "2026-27": 33.48, "2027-28": 36.16, "2028-29": 38.84, "2029-30": 41.52 } },
+        { name: "Walker Kessler", team: "UTA", age: 24, darko: 0.66, actualSalary: 4.9, futureSalaries: {} },
+        { name: "Ausar Thompson", team: "DET", age: 23, darko: 0.66, actualSalary: 8.8, futureSalaries: { "2026-27": 11.12 } },
+        { name: "Neemias Queta", team: "BOS", age: 26, darko: 1.56, actualSalary: 2.3, futureSalaries: { "2026-27": 2.67 } },
+        { name: "Ryan Rollins", team: "MIL", age: 23, darko: 0.41, actualSalary: 4.0, futureSalaries: { "2026-27": 4.00, "2027-28": 4.00 } },
+        { name: "Zach Edey", team: "MEM", age: 23, darko: 0.02, actualSalary: 6.0, futureSalaries: { "2026-27": 6.33, "2027-28": 8.07 } },
+        { name: "Keon Ellis", team: "SAC", age: 26, darko: -0.06, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Javonte Green", team: "DET", age: 32, darko: -0.03, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Shaedon Sharpe", team: "POR", age: 22, darko: 0.5, actualSalary: 8.4, futureSalaries: { "2026-27": 20.09, "2027-28": 21.70, "2028-29": 23.30, "2029-30": 24.91 } },
+        { name: "Brandin Podziemski", team: "GSW", age: 22, darko: 0.69, actualSalary: 3.7, futureSalaries: { "2026-27": 5.68 } },
+        { name: "Moritz Wagner", team: "ORL", age: 28, darko: 0.41, actualSalary: 5.0, futureSalaries: {} },
+        { name: "Sam Hauser", team: "BOS", age: 28, darko: 0.47, actualSalary: 10.0, futureSalaries: { "2026-27": 10.85, "2027-28": 11.65, "2028-29": 12.46 } },
+        { name: "Desmond Bane", team: "ORL", age: 27, darko: 0.07, actualSalary: 36.7, futureSalaries: { "2026-27": 39.45, "2027-28": 42.17, "2028-29": 44.89 } },
+        { name: "Jabari Smith Jr.", team: "HOU", age: 22, darko: 0.26, actualSalary: 12.4, futureSalaries: { "2026-27": 23.64, "2027-28": 21.75, "2028-29": 23.64, "2029-30": 25.53, "2030-31": 27.43 } },
+        { name: "Mason Plumlee", team: "CHO", age: 35, darko: 0.02, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Sam Merrill", team: "CLE", age: 29, darko: 0.33, actualSalary: 8.5, futureSalaries: { "2026-27": 9.16, "2027-28": 9.84, "2028-29": 10.52 } },
+        { name: "Tobias Harris", team: "DET", age: 33, darko: -0.17, actualSalary: 26.6, futureSalaries: {} },
+        { name: "A.J. Green", team: "MIL", age: 26, darko: -0.18, actualSalary: 2.3, futureSalaries: { "2026-27": 10.04, "2027-28": 10.85, "2028-29": 11.65, "2029-30": 12.46 } },
+        { name: "John Konchar", team: "MEM", age: 29, darko: -0.43, actualSalary: 6.2, futureSalaries: { "2026-27": 6.17 } },
+        { name: "Deandre Ayton", team: "LAL", age: 27, darko: 0.39, actualSalary: 8.1, futureSalaries: { "2026-27": 8.10 } },
+        { name: "Moses Moody", team: "GSW", age: 23, darko: 0.93, actualSalary: 11.6, futureSalaries: { "2026-27": 12.50, "2027-28": 13.43 } },
+        { name: "Julius Randle", team: "MIN", age: 31, darko: 0.9, actualSalary: 30.9, futureSalaries: { "2026-27": 33.33, "2027-28": 35.80 } },
+        { name: "Wendell Carter Jr.", team: "ORL", age: 26, darko: 0.86, actualSalary: 10.9, futureSalaries: { "2026-27": 18.10, "2027-28": 19.55, "2028-29": 21.00 } },
+        { name: "Brandon Ingram", team: "TOR", age: 28, darko: 0.82, actualSalary: 38.1, futureSalaries: { "2026-27": 40.00, "2027-28": 41.90 } },
+        { name: "Ty Jerome", team: "MEM", age: 28, darko: 0.78, actualSalary: 8.8, futureSalaries: { "2026-27": 9.22, "2027-28": 9.66 } },
+        { name: "Aaron Nesmith", team: "IND", age: 26, darko: 0.78, actualSalary: 11.0, futureSalaries: { "2026-27": 11.00, "2027-28": 19.42, "2028-29": 20.97 } },
+        { name: "Cason Wallace", team: "OKC", age: 22, darko: 0.73, actualSalary: 5.8, futureSalaries: { "2026-27": 7.42 } },
+        { name: "Donovan Clingan", team: "POR", age: 21, darko: 0.73, actualSalary: 7.2, futureSalaries: { "2026-27": 7.52, "2027-28": 9.55 } },
+        { name: "Miles McBride", team: "NYK", age: 25, darko: 0.71, actualSalary: 4.3, futureSalaries: { "2026-27": 3.96 } },
+        { name: "Darius Garland", team: "CLE", age: 26, darko: 0.68, actualSalary: 39.4, futureSalaries: { "2026-27": 42.17, "2027-28": 44.89 } },
+        { name: "Myles Turner", team: "MIL", age: 29, darko: 0.67, actualSalary: 25.3, futureSalaries: { "2026-27": 26.58, "2027-28": 27.85, "2028-29": 29.12 } },
+        { name: "Walker Kessler", team: "UTA", age: 24, darko: 0.66, actualSalary: 4.9, futureSalaries: {} },
+        { name: "Josh Giddey", team: "CHI", age: 23, darko: 0.64, actualSalary: 25.0, futureSalaries: { "2026-27": 25.00, "2027-28": 25.00, "2028-29": 25.00 } },
+        { name: "Kris Dunn", team: "LAC", age: 31, darko: 0.63, actualSalary: 5.4, futureSalaries: { "2026-27": 5.68 } },
+        { name: "Onyeka Okongwu", team: "ATL", age: 25, darko: 0.62, actualSalary: 15.0, futureSalaries: { "2026-27": 16.12, "2027-28": 16.88 } },
+        { name: "Josh Okogie", team: "HOU", age: 27, darko: 0.61, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Matisse Thybulle", team: "POR", age: 28, darko: 0.59, actualSalary: 11.6, futureSalaries: {} },
+        { name: "Marcus Sasser", team: "DET", age: 25, darko: 0.54, actualSalary: 2.9, futureSalaries: { "2026-27": 5.20 } },
+        { name: "Trae Young", team: "WAS", age: 27, darko: 0.53, actualSalary: 46.0, futureSalaries: { "2026-27": 48.97 } },
+        { name: "Immanuel Quickley", team: "TOR", age: 26, darko: 0.53, actualSalary: 32.5, futureSalaries: { "2026-27": 32.50, "2027-28": 32.50, "2028-29": 32.50 } },
+        { name: "Kon Knueppel", team: "CHO", age: 20, darko: 0.52, actualSalary: 10.0, futureSalaries: { "2026-27": 10.52, "2027-28": 11.02, "2028-29": 13.94 } },
+        { name: "Shaedon Sharpe", team: "POR", age: 22, darko: 0.5, actualSalary: 8.4, futureSalaries: { "2026-27": 20.09, "2027-28": 21.70, "2028-29": 23.30, "2029-30": 24.91 } },
+        { name: "Sam Hauser", team: "BOS", age: 28, darko: 0.47, actualSalary: 10.0, futureSalaries: { "2026-27": 10.85, "2027-28": 11.65, "2028-29": 12.46 } },
+        { name: "Naz Reid", team: "MIN", age: 26, darko: 0.45, actualSalary: 21.6, futureSalaries: { "2026-27": 23.28, "2027-28": 25.00, "2028-29": 26.72, "2029-30": 28.45 } },
+        { name: "Derik Queen", team: "NOP", age: 21, darko: 0.45, actualSalary: 5.2, futureSalaries: { "2026-27": 5.42, "2027-28": 5.67, "2028-29": 8.11 } },
+        { name: "Jusuf Nurkic", team: "UTA", age: 31, darko: 0.43, actualSalary: 19.4, futureSalaries: {} },
+        { name: "Ryan Rollins", team: "MIL", age: 23, darko: 0.41, actualSalary: 4.0, futureSalaries: { "2026-27": 4.00, "2027-28": 4.00 } },
+        { name: "Jordan McLaughlin", team: "SAS", age: 29, darko: 0.4, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Anthony Black", team: "ORL", age: 22, darko: 0.4, actualSalary: 8.0, futureSalaries: { "2026-27": 10.11 } },
+        { name: "Max Strus", team: "CLE", age: 29, darko: 0.4, actualSalary: 15.9, futureSalaries: { "2026-27": 16.66 } },
+        { name: "Jalen Duren", team: "DET", age: 22, darko: 0.39, actualSalary: 6.5, futureSalaries: {} },
+        { name: "Lonzo Ball", team: "CLE", age: 28, darko: 0.39, actualSalary: 10.0, futureSalaries: { "2026-27": 10.00 } },
+        { name: "Oso Ighodaro", team: "PHO", age: 23, darko: 0.39, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Toumani Camara", team: "POR", age: 25, darko: 0.38, actualSalary: 2.2, futureSalaries: { "2026-27": 18.08, "2027-28": 19.53, "2028-29": 20.97, "2029-30": 22.42 } },
+        { name: "Grant Williams", team: "CHO", age: 27, darko: 0.37, actualSalary: 13.6, futureSalaries: { "2026-27": 14.27 } },
+        { name: "Coby White", team: "CHI", age: 25, darko: 0.36, actualSalary: 12.9, futureSalaries: {} },
+        { name: "Jamaree Bouyea", team: "SAS", age: 26, darko: 0.33, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Nah'Shon Hyland", team: "LAC", age: 25, darko: 0.33, actualSalary: 4.1, futureSalaries: {} },
+        { name: "Sam Merrill", team: "CLE", age: 29, darko: 0.33, actualSalary: 8.5, futureSalaries: { "2026-27": 9.16, "2027-28": 9.84, "2028-29": 10.52 } },
+        { name: "Harrison Barnes", team: "SAS", age: 33, darko: 0.33, actualSalary: 19.0, futureSalaries: {} },
+        { name: "Adem Bona", team: "PHI", age: 22, darko: 0.29, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Paolo Banchero", team: "ORL", age: 23, darko: 0.26, actualSalary: 15.3, futureSalaries: { "2026-27": 41.50, "2027-28": 44.82, "2028-29": 48.14, "2029-30": 51.46, "2030-31": 54.78 } },
+        { name: "Mouhamed Gueye", team: "ATL", age: 23, darko: 0.23, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Ajay Mitchell", team: "OKC", age: 23, darko: 0.23, actualSalary: 3.0, futureSalaries: { "2026-27": 2.85, "2027-28": 2.85 } },
+        { name: "Daniel Gafford", team: "DAL", age: 27, darko: 0.2, actualSalary: 14.4, futureSalaries: { "2026-27": 17.26, "2027-28": 18.13, "2028-29": 18.99 } },
+        { name: "Marcus Smart", team: "LAL", age: 31, darko: 0.19, actualSalary: 5.1, futureSalaries: { "2026-27": 5.39 } },
+        { name: "Keegan Murray", team: "SAC", age: 25, darko: 0.18, actualSalary: 11.1, futureSalaries: { "2026-27": 24.14, "2027-28": 26.07, "2028-29": 28.00, "2029-30": 29.93, "2030-31": 31.86 } },
+        { name: "Jaylin Williams", team: "OKC", age: 23, darko: 0.17, actualSalary: 8.5, futureSalaries: { "2026-27": 7.77, "2027-28": 7.77 } },
+        { name: "Davion Mitchell", team: "MIA", age: 27, darko: 0.13, actualSalary: 11.6, futureSalaries: { "2026-27": 12.40 } },
+        { name: "Cameron Johnson", team: "DEN", age: 29, darko: 0.12, actualSalary: 21.1, futureSalaries: { "2026-27": 23.06 } },
+        { name: "Dyson Daniels", team: "ATL", age: 22, darko: 0.11, actualSalary: 7.7, futureSalaries: { "2026-27": 25.00, "2027-28": 25.00, "2028-29": 25.00 } },
+        { name: "Jalen Green", team: "PHO", age: 23, darko: 0.1, actualSalary: 33.6, futureSalaries: { "2026-27": 36.25, "2027-28": 36.00 } },
+        { name: "Luka Garza", team: "BOS", age: 27, darko: 0.06, actualSalary: 2.5, futureSalaries: { "2026-27": 2.80 } },
+        { name: "Matas Buzelis", team: "CHI", age: 21, darko: 0.06, actualSalary: 5.5, futureSalaries: { "2026-27": 5.72, "2027-28": 7.58 } },
+        { name: "Ryan Dunn", team: "PHO", age: 23, darko: 0.06, actualSalary: 2.7, futureSalaries: { "2026-27": 2.78, "2027-28": 5.03 } },
+        { name: "Collin Sexton", team: "CHO", age: 27, darko: 0, actualSalary: 19.0, futureSalaries: {} },
+        { name: "Chris Boucher", team: "BOS", age: 33, darko: -0.01, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Duncan Robinson", team: "DET", age: 31, darko: -0.02, actualSalary: 26.7, futureSalaries: { "2026-27": 15.99, "2027-28": 15.15 } },
+        { name: "Gary Payton II", team: "GSW", age: 33, darko: -0.02, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Cam Spencer", team: "MEM", age: 25, darko: -0.05, actualSalary: 2.5, futureSalaries: { "2026-27": 2.41, "2027-28": 2.62, "2028-29": 2.83 } },
+        { name: "Julian Phillips", team: "CHI", age: 22, darko: -0.05, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Yuki Kawamura", team: "MEM", age: 24, darko: -0.06, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Mark Williams", team: "PHO", age: 24, darko: -0.07, actualSalary: 6.3, futureSalaries: {} },
+        { name: "Dean Wade", team: "CLE", age: 29, darko: -0.11, actualSalary: 6.6, futureSalaries: {} },
+        { name: "Will Richard", team: "GSW", age: 23, darko: -0.11, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "Craig Porter", team: "CLE", age: 25, darko: -0.12, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Kelly Olynyk", team: "SAS", age: 34, darko: -0.13, actualSalary: 13.4, futureSalaries: {} },
+        { name: "Dorian Finney-Smith", team: "HOU", age: 32, darko: -0.13, actualSalary: 12.7, futureSalaries: { "2026-27": 13.34, "2027-28": 13.34, "2028-29": 13.34 } },
+        { name: "Kentavious Caldwell-Pope", team: "MEM", age: 32, darko: -0.14, actualSalary: 21.6, futureSalaries: { "2026-27": 21.62 } },
+        { name: "Max Christie", team: "DAL", age: 22, darko: -0.14, actualSalary: 7.7, futureSalaries: { "2026-27": 8.29, "2027-28": 8.86 } },
+        { name: "Jose Alvarado", team: "NOP", age: 27, darko: -0.15, actualSalary: 4.5, futureSalaries: { "2026-27": 4.50 } },
+        { name: "Antonio Reeves", team: "CHA", age: 25, darko: -0.16, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Zach Collins", team: "CHI", age: 28, darko: -0.16, actualSalary: 18.1, futureSalaries: {} },
+        { name: "Marvin Bagley III", team: "WAS", age: 26, darko: -0.16, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Moussa Cisse", team: "MEM", age: 23, darko: -0.17, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Kris Murray", team: "POR", age: 25, darko: -0.17, actualSalary: 3.1, futureSalaries: { "2026-27": 5.32 } },
+        { name: "Ronald Holland II", team: "DET", age: 20, darko: -0.18, actualSalary: 8.7, futureSalaries: { "2026-27": 9.07, "2027-28": 11.49 } },
+        { name: "Bogdan Bogdanovic", team: "LAC", age: 33, darko: -0.18, actualSalary: 16.0, futureSalaries: { "2026-27": 16.02 } },
+        { name: "Keldon Johnson", team: "SAS", age: 26, darko: -0.19, actualSalary: 17.5, futureSalaries: { "2026-27": 17.50 } },
+        { name: "Jordan Miller", team: "LAC", age: 26, darko: -0.21, actualSalary: 1.9, futureSalaries: {} },
+        { name: "Landry Shamet", team: "NYK", age: 28, darko: -0.22, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Kel'el Ware", team: "MIA", age: 21, darko: -0.22, actualSalary: 4.4, futureSalaries: { "2026-27": 4.65, "2027-28": 7.14 } },
+        { name: "Brandon Williams", team: "DAL", age: 26, darko: -0.23, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Jaime Jaquez Jr.", team: "MIA", age: 24, darko: -0.23, actualSalary: 3.9, futureSalaries: { "2026-27": 5.94 } },
+        { name: "Nickeil Alexander-Walker", team: "ATL", age: 27, darko: -0.24, actualSalary: 15.2, futureSalaries: { "2026-27": 14.40, "2027-28": 15.16, "2028-29": 15.92 } },
+        { name: "Miles Bridges", team: "CHO", age: 27, darko: -0.24, actualSalary: 25.0, futureSalaries: { "2026-27": 22.83 } },
+        { name: "Santi Aldama", team: "MEM", age: 25, darko: -0.25, actualSalary: 18.5, futureSalaries: { "2026-27": 17.01, "2027-28": 17.01 } },
+        { name: "Tre Jones", team: "CHI", age: 26, darko: -0.25, actualSalary: 8.0, futureSalaries: { "2026-27": 8.00, "2027-28": 8.00 } },
+        { name: "RJ Barrett", team: "TOR", age: 25, darko: -0.26, actualSalary: 27.7, futureSalaries: { "2026-27": 29.62 } },
+        { name: "T.J. McConnell", team: "IND", age: 33, darko: -0.26, actualSalary: 10.2, futureSalaries: { "2026-27": 11.00, "2027-28": 11.80, "2028-29": 11.80 } },
+        { name: "Collin Murray-Boyles", team: "TOR", age: 20, darko: -0.26, actualSalary: 6.3, futureSalaries: { "2026-27": 6.65, "2027-28": 6.97, "2028-29": 8.87 } },
+        { name: "Jake LaRavia", team: "LAL", age: 24, darko: -0.26, actualSalary: 6.0, futureSalaries: { "2026-27": 6.00 } },
+        { name: "Anfernee Simons", team: "BOS", age: 26, darko: -0.27, actualSalary: 27.7, futureSalaries: {} },
+        { name: "Jordan Goodwin", team: "PHO", age: 27, darko: -0.28, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Spencer Jones", team: "DEN", age: 24, darko: -0.29, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Kevin Huerter", team: "CHI", age: 27, darko: -0.31, actualSalary: 18.0, futureSalaries: {} },
+        { name: "Devin Vassell", team: "SAS", age: 25, darko: -0.32, actualSalary: 27.0, futureSalaries: { "2026-27": 27.00, "2027-28": 24.65, "2028-29": 27.00 } },
+        { name: "Trey Murphy III", team: "NOP", age: 25, darko: -0.32, actualSalary: 25.0, futureSalaries: { "2026-27": 27.00, "2027-28": 29.00, "2028-29": 31.00 } },
+        { name: "Jock Landale", team: "MEM", age: 30, darko: -0.34, actualSalary: 10.3, futureSalaries: {} },
+        { name: "Andrew Wiggins", team: "MIA", age: 30, darko: -0.35, actualSalary: 28.2, futureSalaries: { "2026-27": 30.17 } },
+        { name: "Clint Capela", team: "HOU", age: 31, darko: -0.35, actualSalary: 6.7, futureSalaries: { "2026-27": 7.04, "2027-28": 7.37 } },
+        { name: "Tristan Vukcevic", team: "WAS", age: 22, darko: -0.38, actualSalary: 2.4, futureSalaries: {} },
+        { name: "Andrew Nembhard", team: "IND", age: 26, darko: -0.38, actualSalary: 18.1, futureSalaries: { "2026-27": 19.55, "2027-28": 21.00 } },
+        { name: "Josh Green", team: "CHO", age: 25, darko: -0.39, actualSalary: 13.7, futureSalaries: { "2026-27": 14.68 } },
+        { name: "Dante Exum", team: "DAL", age: 30, darko: -0.4, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Brandon Miller", team: "CHO", age: 23, darko: -0.4, actualSalary: 12.0, futureSalaries: { "2026-27": 15.10 } },
+        { name: "Jrue Holiday", team: "POR", age: 35, darko: -0.47, actualSalary: 32.4, futureSalaries: { "2026-27": 34.80, "2027-28": 37.20 } },
+        { name: "Baylor Scheierman", team: "BOS", age: 25, darko: -0.47, actualSalary: 2.6, futureSalaries: {} },
+        { name: "Dillon Brooks", team: "PHO", age: 30, darko: -0.48, actualSalary: 21.1, futureSalaries: { "2026-27": 19.99 } },
+        { name: "Haywood Highsmith", team: "BKN", age: 29, darko: -0.48, actualSalary: 5.6, futureSalaries: {} },
+        { name: "Luke Kennard", team: "ATL", age: 29, darko: -0.48, actualSalary: 11.0, futureSalaries: {} },
+        { name: "Ziaire Williams", team: "BKN", age: 24, darko: -0.51, actualSalary: 6.3, futureSalaries: { "2026-27": 6.25 } },
+        { name: "Dalen Terry", team: "CHI", age: 23, darko: -0.52, actualSalary: 5.4, futureSalaries: {} },
+        { name: "Precious Achiuwa", team: "SAC", age: 26, darko: -0.54, actualSalary: 2.1, futureSalaries: {} },
+        { name: "Nikola Topić", team: "OKC", age: 20, darko: -0.54, actualSalary: 5.2, futureSalaries: { "2026-27": 5.43, "2027-28": 7.48 } },
+        { name: "De'Andre Hunter", team: "CLE", age: 28, darko: -0.57, actualSalary: 23.3, futureSalaries: { "2026-27": 24.91 } },
+        { name: "Royce O'Neale", team: "PHO", age: 32, darko: -0.57, actualSalary: 10.1, futureSalaries: { "2026-27": 10.88, "2027-28": 11.63 } },
+        { name: "Quentin Grimes", team: "PHI", age: 25, darko: -0.58, actualSalary: 8.7, futureSalaries: {} },
+        { name: "Dru Smith", team: "MIA", age: 28, darko: -0.6, actualSalary: 2.4, futureSalaries: { "2026-27": 2.58, "2027-28": 2.93 } },
+        { name: "Ayo Dosunmu", team: "CHI", age: 26, darko: -0.53, actualSalary: 7.5, futureSalaries: {} },
+        { name: "Kevon Looney", team: "NOP", age: 29, darko: -0.53, actualSalary: 8.0, futureSalaries: { "2026-27": 8.00, "2027-28": 8.00 } },
+        { name: "Precious Achiuwa", team: "SAC", age: 26, darko: -0.54, actualSalary: 2.1, futureSalaries: {} },
+        { name: "Nikola Topić", team: "OKC", age: 20, darko: -0.54, actualSalary: 5.2, futureSalaries: { "2026-27": 5.43, "2027-28": 7.48 } },
+        { name: "Royce O'Neale", team: "PHO", age: 32, darko: -0.57, actualSalary: 10.1, futureSalaries: { "2026-27": 10.88, "2027-28": 11.63 } },
+        { name: "CJ McCollum", team: "ATL", age: 34, darko: -0.57, actualSalary: 30.7, futureSalaries: {} },
+        { name: "Gui Santos", team: "GSW", age: 23, darko: -0.57, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Quentin Grimes", team: "PHI", age: 25, darko: -0.58, actualSalary: 8.7, futureSalaries: {} },
+        { name: "Jevon Carter", team: "CHI", age: 30, darko: -0.6, actualSalary: 6.8, futureSalaries: {} },
+        { name: "Vit Krejci", team: "ATL", age: 25, darko: -0.6, actualSalary: 2.3, futureSalaries: { "2026-27": 2.67, "2027-28": 3.01 } },
+        { name: "Obi Toppin", team: "IND", age: 27, darko: -0.61, actualSalary: 14.0, futureSalaries: { "2026-27": 15.00, "2027-28": 16.03 } },
+        { name: "Justin Champagnie", team: "WAS", age: 24, darko: -0.62, actualSalary: 2.3, futureSalaries: { "2026-27": 2.67, "2027-28": 3.01 } },
+        { name: "Kelly Oubre Jr.", team: "PHI", age: 30, darko: -0.64, actualSalary: 8.4, futureSalaries: {} },
+        { name: "Devin Carter", team: "SAC", age: 23, darko: -0.64, actualSalary: 4.9, futureSalaries: { "2026-27": 5.16, "2027-28": 7.37 } },
+        { name: "Jay Huff", team: "IND", age: 28, darko: -0.65, actualSalary: 2.3, futureSalaries: { "2026-27": 2.67, "2027-28": 3.01 } },
+        { name: "Patrick Baldwin Jr.", team: "WAS", age: 23, darko: -0.66, actualSalary: 4.4, futureSalaries: {} },
+        { name: "Cooper Flagg", team: "DAL", age: 19, darko: -0.69, actualSalary: 13.8, futureSalaries: { "2026-27": 14.52, "2027-28": 15.21, "2028-29": 19.18 } },
+        { name: "Malik Monk", team: "SAC", age: 27, darko: -0.69, actualSalary: 18.8, futureSalaries: { "2026-27": 20.19, "2027-28": 21.58 } },
+        { name: "Nikola Jovic", team: "MIA", age: 22, darko: -0.71, actualSalary: 4.4, futureSalaries: { "2026-27": 16.20, "2027-28": 14.90, "2028-29": 15.10, "2029-30": 16.20 } },
+        { name: "Gary Harris", team: "MIL", age: 31, darko: -0.72, actualSalary: 3.6, futureSalaries: { "2026-27": 3.82 } },
+        { name: "Oscar Tshiebwe", team: "UTA", age: 26, darko: -0.74, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Isaiah Stewart", team: "DET", age: 24, darko: -0.74, actualSalary: 15.0, futureSalaries: { "2026-27": 15.00, "2027-28": 15.00 } },
+        { name: "Noah Clowney", team: "BRK", age: 21, darko: -0.74, actualSalary: 3.4, futureSalaries: { "2026-27": 5.41 } },
+        { name: "Domantas Sabonis", team: "SAC", age: 29, darko: -0.75, actualSalary: 42.3, futureSalaries: { "2026-27": 45.47, "2027-28": 48.61 } },
+        { name: "Cedric Coward", team: "MEM", age: 23, darko: -0.76, actualSalary: 5.7, futureSalaries: { "2026-27": 6.00, "2027-28": 6.29, "2028-29": 8.34 } },
+        { name: "Quenton Jackson", team: "IND", age: 27, darko: -0.77, actualSalary: 2.1, futureSalaries: {} },
+        { name: "Isaiah Jackson", team: "IND", age: 24, darko: -0.79, actualSalary: 7.6, futureSalaries: { "2026-27": 7.00, "2027-28": 6.40 } },
+        { name: "Corey Kispert", team: "ATL", age: 26, darko: -0.79, actualSalary: 14.0, futureSalaries: { "2026-27": 14.00, "2027-28": 13.05, "2028-29": 13.05 } },
+        { name: "Saddiq Bey", team: "NOP", age: 26, darko: -0.8, actualSalary: 6.1, futureSalaries: { "2026-27": 6.44 } },
+        { name: "Nicolas Claxton", team: "BKN", age: 26, darko: -0.8, actualSalary: 25.4, futureSalaries: { "2026-27": 23.15, "2027-28": 20.94 } },
+        { name: "Jaxson Hayes", team: "LAL", age: 25, darko: -0.81, actualSalary: 3.4, futureSalaries: {} },
+        { name: "Dominick Barlow", team: "ATL", age: 22, darko: -0.81, actualSalary: 2.1, futureSalaries: {} },
+        { name: "P.J. Washington", team: "DAL", age: 27, darko: -0.82, actualSalary: 14.2, futureSalaries: { "2026-27": 19.81, "2027-28": 21.40, "2028-29": 22.98, "2029-30": 24.57 } },
+        { name: "Jamal Shead", team: "TOR", age: 23, darko: -0.82, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30 } },
+        { name: "Xavier Tillman", team: "BOS", age: 27, darko: -0.84, actualSalary: 2.5, futureSalaries: {} },
+        { name: "Asa Newell", team: "ATL", age: 20, darko: -0.84, actualSalary: 3.2, futureSalaries: { "2026-27": 3.40, "2027-28": 3.56, "2028-29": 6.04 } },
+        { name: "Buddy Hield", team: "GSW", age: 33, darko: -0.85, actualSalary: 9.2, futureSalaries: { "2026-27": 9.66, "2027-28": 10.10 } },
+        { name: "Ryan Kalkbrenner", team: "CHO", age: 24, darko: -0.86, actualSalary: 2.3, futureSalaries: { "2026-27": 2.41, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "Brook Lopez", team: "LAC", age: 37, darko: -0.87, actualSalary: 8.8, futureSalaries: { "2026-27": 9.19 } },
+        { name: "Georges Niang", team: "UTA", age: 32, darko: -0.9, actualSalary: 8.2, futureSalaries: {} },
+        { name: "Noah Penda", team: "ORL", age: 21, darko: -0.95, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "Aaron Holiday", team: "HOU", age: 29, darko: -0.96, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Andre Drummond", team: "PHI", age: 32, darko: -0.96, actualSalary: 5.0, futureSalaries: {} },
+        { name: "Stephon Castle", team: "SAS", age: 21, darko: -0.99, actualSalary: 9.6, futureSalaries: { "2026-27": 10.02, "2027-28": 12.67 } },
+        { name: "Jaylen Clark", team: "MIN", age: 24, darko: -0.99, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Rui Hachimura", team: "LAL", age: 27, darko: -0.99, actualSalary: 18.3, futureSalaries: {} },
+        { name: "Jae'Sean Tate", team: "HOU", age: 30, darko: -0.99, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Khris Middleton", team: "WAS", age: 34, darko: -0.99, actualSalary: 33.3, futureSalaries: {} },
+        { name: "Pelle Larsson", team: "MIA", age: 24, darko: -0.99, actualSalary: 1.2, futureSalaries: { "2026-27": 2.0 } },
+        { name: "Vince Williams Jr.", team: "MEM", age: 25, darko: -1, actualSalary: 2.2, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Peyton Watson", team: "DEN", age: 23, darko: -1, actualSalary: 4.4, futureSalaries: {} },
+        { name: "Svi Mykhailiuk", team: "UTA", age: 28, darko: -1.02, actualSalary: 3.7, futureSalaries: { "2026-27": 3.85, "2027-28": 4.03 } },
+        { name: "Ron Harper Jr.", team: "BOS", age: 25, darko: -1.02, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Myron Gardner", team: "ORL", age: 24, darko: -1.03, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Wendell Moore Jr.", team: "DET", age: 24, darko: -1.03, actualSalary: 4.5, futureSalaries: {} },
+        { name: "Pat Connaughton", team: "CHO", age: 33, darko: -1.03, actualSalary: 9.4, futureSalaries: {} },
+        { name: "Egor Dёmin", team: "BRK", age: 19, darko: -1.07, actualSalary: 6.9, futureSalaries: { "2026-27": 7.23, "2027-28": 7.58, "2028-29": 9.64 } },
+        { name: "Simone Fontecchio", team: "MIA", age: 30, darko: -1.08, actualSalary: 8.3, futureSalaries: {} },
+        { name: "Jaden Ivey", team: "DET", age: 23, darko: -1.08, actualSalary: 10.1, futureSalaries: {} },
+        { name: "Gradey Dick", team: "TOR", age: 22, darko: -1.08, actualSalary: 5.0, futureSalaries: { "2026-27": 7.13 } },
+        { name: "Dejounte Murray", team: "NOP", age: 29, darko: -1.08, actualSalary: 30.8, futureSalaries: {} },
+        { name: "Quinten Post", team: "GSW", age: 25, darko: -1.09, actualSalary: 2.0, futureSalaries: {} },
+        { name: "TyTy Washington Jr.", team: "PHX", age: 24, darko: -1.09, actualSalary: 1.2, futureSalaries: {} },
+        { name: "D'Angelo Russell", team: "DAL", age: 29, darko: -1.1, actualSalary: 5.7, futureSalaries: {} },
+        { name: "Naji Marshall", team: "DAL", age: 27, darko: -1.11, actualSalary: 9.0, futureSalaries: { "2026-27": 9.43 } },
+        { name: "Klay Thompson", team: "DAL", age: 35, darko: -1.12, actualSalary: 16.7, futureSalaries: { "2026-27": 17.46 } },
+        { name: "Trendon Watford", team: "PHI", age: 25, darko: -1.13, actualSalary: 2.5, futureSalaries: { "2026-27": 2.80 } },
+        { name: "Leonard Miller", team: "MIN", age: 22, darko: -1.13, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Thanasis Antetokounmpo", team: "MIL", age: 33, darko: -1.13, actualSalary: 2.3, futureSalaries: {} },
+        { name: "VJ Edgecombe", team: "PHI", age: 20, darko: -1.14, actualSalary: 11.1, futureSalaries: { "2026-27": 11.66, "2027-28": 12.22, "2028-29": 15.45 } },
+        { name: "Duop Reath", team: "POR", age: 29, darko: -1.15, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Yves Missi", team: "NOP", age: 21, darko: -1.16, actualSalary: 3.4, futureSalaries: { "2026-27": 3.51, "2027-28": 5.60 } },
+        { name: "Caris LeVert", team: "DET", age: 31, darko: -1.16, actualSalary: 14.1, futureSalaries: { "2026-27": 14.81 } },
+        { name: "Bilal Coulibaly", team: "WAS", age: 21, darko: -1.17, actualSalary: 7.3, futureSalaries: { "2026-27": 9.24 } },
+        { name: "Jabari Walker", team: "POR", age: 23, darko: -1.18, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Dylan Cardwell", team: "HOU", age: 23, darko: -1.18, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Dylan Harper", team: "SAS", age: 19, darko: -1.18, actualSalary: 12.4, futureSalaries: { "2026-27": 12.99, "2027-28": 13.61, "2028-29": 17.17 } },
+        { name: "Isaac Okoro", team: "CHI", age: 24, darko: -1.19, actualSalary: 11.0, futureSalaries: { "2026-27": 11.81 } },
+        { name: "Alijah Martin", team: "MIL", age: 23, darko: -1.19, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Kyle Filipowski", team: "UTA", age: 22, darko: -1.19, actualSalary: 3.0, futureSalaries: { "2026-27": 3.00, "2027-28": 3.00 } },
+        { name: "Kasparas Jakučionis", team: "MIA", age: 19, darko: -1.2, actualSalary: 3.7, futureSalaries: { "2026-27": 3.84, "2027-28": 4.02, "2028-29": 6.21 } },
+        { name: "Harrison Ingram", team: "SAS", age: 23, darko: -1.21, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Maxi Kleber", team: "LAL", age: 34, darko: -1.21, actualSalary: 11.0, futureSalaries: {} },
+        { name: "Tolu Smith", team: "HOU", age: 25, darko: -1.21, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Bobby Portis", team: "MIL", age: 30, darko: -1.21, actualSalary: 13.4, futureSalaries: { "2026-27": 14.52, "2027-28": 15.60 } },
+        { name: "Daniss Jenkins", team: "DET", age: 24, darko: -1.23, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ousmane Dieng", team: "OKC", age: 22, darko: -1.25, actualSalary: 6.7, futureSalaries: {} },
+        { name: "Kyle Anderson", team: "UTA", age: 32, darko: -1.26, actualSalary: 9.2, futureSalaries: { "2026-27": 9.66 } },
+        { name: "Trayce Jackson-Davis", team: "GSW", age: 25, darko: -1.26, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Sidy Cissoko", team: "SAS", age: 21, darko: -1.26, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Al Horford", team: "GSW", age: 39, darko: -1.26, actualSalary: 5.7, futureSalaries: { "2026-27": 5.97 } },
+        { name: "Jerami Grant", team: "POR", age: 31, darko: -1.27, actualSalary: 32.0, futureSalaries: { "2026-27": 34.21, "2027-28": 36.41 } },
+        { name: "Scoot Henderson", team: "POR", age: 21, darko: -1.28, actualSalary: 10.7, futureSalaries: { "2026-27": 13.59 } },
+        { name: "Karlo Matkovic", team: "NOP", age: 24, darko: -1.28, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30 } },
+        { name: "Cam Thomas", team: "BKN", age: 24, darko: -1.28, actualSalary: 6.0, futureSalaries: {} },
+        { name: "Johnny Juzang", team: "UTA", age: 24, darko: -1.28, actualSalary: 3.0, futureSalaries: {} },
+        { name: "Keaton Wallace", team: "ATL", age: 26, darko: -1.29, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Caleb Houstan", team: "ORL", age: 23, darko: -1.29, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Nicolas Batum", team: "LAC", age: 37, darko: -1.3, actualSalary: 5.6, futureSalaries: { "2026-27": 5.88 } },
+        { name: "Jeremiah Robinson-Earl", team: "NOP", age: 25, darko: -1.3, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Joan Beringer", team: "MIL", age: 19, darko: -1.33, actualSalary: 1.5, futureSalaries: {} },
+        { name: "Jaden Hardy", team: "DAL", age: 23, darko: -1.34, actualSalary: 6.0, futureSalaries: { "2026-27": 6.00, "2027-28": 6.00 } },
+        { name: "Taurean Prince", team: "MIL", age: 31, darko: -1.34, actualSalary: 3.3, futureSalaries: { "2026-27": 3.82 } },
+        { name: "Emanuel Miller", team: "TOR", age: 25, darko: -1.35, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Zaccharie Risacher", team: "ATL", age: 20, darko: -1.35, actualSalary: 13.2, futureSalaries: { "2026-27": 13.83, "2027-28": 17.43 } },
+        { name: "Tony Bradley", team: "IND", age: 28, darko: -1.35, actualSalary: 2.9, futureSalaries: {} },
+        { name: "Thomas Bryant", team: "CLE", age: 28, darko: -1.35, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Jamal Cain", team: "MIA", age: 26, darko: -1.36, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Andre Jackson Jr.", team: "MIL", age: 24, darko: -1.37, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Jonathan Mogbo", team: "TOR", age: 24, darko: -1.37, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30 } },
+        { name: "DaRon Holmes II", team: "DEN", age: 23, darko: -1.37, actualSalary: 3.2, futureSalaries: { "2026-27": 3.37, "2027-28": 5.55 } },
+        { name: "Zach LaVine", team: "SAC", age: 30, darko: -1.4, actualSalary: 47.5, futureSalaries: { "2026-27": 48.97 } },
+        { name: "Dalton Knecht", team: "LAL", age: 24, darko: -1.4, actualSalary: 4.0, futureSalaries: { "2026-27": 4.20, "2027-28": 6.45 } },
+        { name: "Pete Nance", team: "CLE", age: 25, darko: -1.42, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Isaiah Livers", team: "PHX", age: 27, darko: -1.43, actualSalary: 1.2, futureSalaries: {} },
+        { name: "DeMar DeRozan", team: "SAC", age: 36, darko: -1.44, actualSalary: 24.6, futureSalaries: { "2026-27": 25.74 } },
+        { name: "Tim Hardaway Jr.", team: "DEN", age: 33, darko: -1.44, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Tyler Kolek", team: "NYK", age: 24, darko: -1.44, actualSalary: 2.2, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "David Jones", team: "PHO", age: 24, darko: -1.45, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Kyshawn George", team: "WAS", age: 22, darko: -1.45, actualSalary: 3.0, futureSalaries: { "2026-27": 3.11, "2027-28": 5.44 } },
+        { name: "Jalen Wilson", team: "BKN", age: 25, darko: -1.46, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Jamison Battle", team: "TOR", age: 24, darko: -1.46, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30 } },
+        { name: "Johnny Furphy", team: "IND", age: 21, darko: -1.46, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Isaiah Crawford", team: "SAC", age: 24, darko: -1.47, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ja'Kobe Walter", team: "TOR", age: 21, darko: -1.47, actualSalary: 3.6, futureSalaries: { "2026-27": 3.81, "2027-28": 5.87 } },
+        { name: "Taylor Hendricks", team: "UTA", age: 22, darko: -1.48, actualSalary: 6.1, futureSalaries: { "2026-27": 7.81 } },
+        { name: "Micah Potter", team: "UTA", age: 27, darko: -1.49, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Blake Wesley", team: "POR", age: 22, darko: -1.49, actualSalary: 7.0, futureSalaries: { "2026-27": 7.02 } },
+        { name: "Mike Conley", team: "MIN", age: 38, darko: -1.51, actualSalary: 10.8, futureSalaries: {} },
+        { name: "Branden Carlson", team: "OKC", age: 26, darko: -1.52, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Nae'Qwan Tomlin", team: "CLE", age: 25, darko: -1.53, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Keyonte George", team: "UTA", age: 22, darko: -1.53, actualSalary: 4.3, futureSalaries: { "2026-27": 6.56 } },
+        { name: "Bradley Beal", team: "LAC", age: 32, darko: -1.54, actualSalary: 5.4, futureSalaries: { "2026-27": 5.62 } },
+        { name: "Brice Sensabaugh", team: "UTA", age: 22, darko: -1.54, actualSalary: 2.7, futureSalaries: { "2026-27": 4.86 } },
+        { name: "JD Davison", team: "BOS", age: 23, darko: -1.56, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Walter Clayton Jr.", team: "UTA", age: 23, darko: -1.6, actualSalary: 4.0, futureSalaries: { "2026-27": 4.19, "2027-28": 4.39, "2028-29": 6.75 } },
+        { name: "Jalen Pickett", team: "DEN", age: 26, darko: -1.61, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Bryce McGowens", team: "POR", age: 23, darko: -1.62, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Drew Eubanks", team: "SAC", age: 28, darko: -1.62, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Olivier-Maxence Prosper", team: "MEM", age: 23, darko: -1.64, actualSalary: 1.0, futureSalaries: { "2026-27": 1.0, "2027-28": 1.0 } },
+        { name: "Nikola Vucevic", team: "CHI", age: 35, darko: -1.64, actualSalary: 21.5, futureSalaries: {} },
+        { name: "Pat Spencer", team: "GSW", age: 29, darko: -1.64, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ben Sheppard", team: "IND", age: 24, darko: -1.65, actualSalary: 2.8, futureSalaries: { "2026-27": 5.03 } },
+        { name: "Maxime Raynaud", team: "SAC", age: 22, darko: -1.65, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53 } },
+        { name: "Chris Mañon", team: "BKN", age: 25, darko: -1.65, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Drake Powell", team: "CHO", age: 20, darko: -1.66, actualSalary: 2.5, futureSalaries: {} },
+        { name: "Christian Koloko", team: "LAL", age: 25, darko: -1.66, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Caleb Martin", team: "DAL", age: 30, darko: -1.66, actualSalary: 9.6, futureSalaries: { "2026-27": 10.00, "2027-28": 9.37 } },
+        { name: "Chris Livingston", team: "CLE", age: 22, darko: -1.66, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Hugo González", team: "BOS", age: 19, darko: -1.67, actualSalary: 2.8, futureSalaries: { "2026-27": 2.92, "2027-28": 3.06, "2028-29": 5.53 } },
+        { name: "Jonas Valanciunas", team: "DEN", age: 33, darko: -1.68, actualSalary: 10.4, futureSalaries: { "2026-27": 10.00 } },
+        { name: "Thomas Sorber", team: "OKC", age: 20, darko: -1.68, actualSalary: 4.7, futureSalaries: { "2026-27": 4.89, "2027-28": 5.12, "2028-29": 7.85 } },
+        { name: "E.J. Liddell", team: "PHO", age: 25, darko: -1.68, actualSalary: 0.7, futureSalaries: { "2026-27": 0.71 } },
+        { name: "Pacôme Dadiet", team: "NYK", age: 20, darko: -1.69, actualSalary: 2.8, futureSalaries: { "2026-27": 2.98, "2027-28": 5.37 } },
+        { name: "Isaiah Stevens", team: "MIA", age: 25, darko: -1.69, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ochai Agbaji", team: "TOR", age: 25, darko: -1.7, actualSalary: 6.4, futureSalaries: {} },
+        { name: "Tyus Jones", team: "ORL", age: 29, darko: -1.7, actualSalary: 7.0, futureSalaries: {} },
+        { name: "Jonathan Kuminga", team: "GSW", age: 23, darko: -1.71, actualSalary: 22.5, futureSalaries: { "2026-27": 24.30 } },
+        { name: "Jaylen Wells", team: "MEM", age: 22, darko: -1.71, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Nique Clifford", team: "OKC", age: 23, darko: -1.74, actualSalary: 1.2, futureSalaries: {} },
+        { name: "LJ Cryer", team: "CHO", age: 23, darko: -1.74, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Alexandre Sarr", team: "WAS", age: 20, darko: -1.74, actualSalary: 11.8, futureSalaries: { "2026-27": 12.37, "2027-28": 15.61 } },
+        { name: "Seth Curry", team: "CHO", age: 35, darko: -1.74, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Keshad Johnson", team: "MIA", age: 24, darko: -1.75, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Jordan Poole", team: "NOP", age: 26, darko: -1.75, actualSalary: 31.8, futureSalaries: { "2026-27": 34.04 } },
+        { name: "Kobe Brown", team: "LAC", age: 26, darko: -1.75, actualSalary: 2.7, futureSalaries: {} },
+        { name: "John Tonje", team: "MIN", age: 24, darko: -1.75, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Tamar Bates", team: "DEN", age: 23, darko: -1.76, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Guerschon Yabusele", team: "NYK", age: 30, darko: -1.82, actualSalary: 5.5, futureSalaries: { "2026-27": 5.78 } },
+        { name: "Liam McNeeley", team: "CHO", age: 20, darko: -1.82, actualSalary: 2.8, futureSalaries: { "2026-27": 2.90, "2027-28": 3.04, "2028-29": 5.49 } },
+        { name: "Luke Travers", team: "CLE", age: 24, darko: -1.83, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Terance Mann", team: "BKN", age: 29, darko: -1.83, actualSalary: 15.5, futureSalaries: { "2026-27": 15.50, "2027-28": 16.00 } },
+        { name: "Russell Westbrook", team: "SAC", age: 37, darko: -1.84, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Ariel Hukporti", team: "NYK", age: 23, darko: -1.84, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Cole Anthony", team: "MIL", age: 25, darko: -1.85, actualSalary: 15.4, futureSalaries: { "2026-27": 15.40 } },
+        { name: "Gary Trent Jr.", team: "MIL", age: 27, darko: -1.86, actualSalary: 3.7, futureSalaries: { "2026-27": 3.88 } },
+        { name: "Tristen Newton", team: "IND", age: 24, darko: -1.88, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Tidjane Salaün", team: "CHO", age: 20, darko: -1.88, actualSalary: 7.9, futureSalaries: { "2026-27": 8.24, "2027-28": 10.45 } },
+        { name: "Khaman Maluach", team: "PHO", age: 19, darko: -1.89, actualSalary: 6.0, futureSalaries: { "2026-27": 6.32, "2027-28": 6.62, "2028-29": 8.44 } },
+        { name: "Tre Johnson", team: "WAS", age: 19, darko: -1.89, actualSalary: 8.2, futureSalaries: { "2026-27": 8.65, "2027-28": 9.06, "2028-29": 11.49 } },
+        { name: "Tristan da Silva", team: "ORL", age: 24, darko: -1.89, actualSalary: 3.8, futureSalaries: { "2026-27": 3.99, "2027-28": 6.14 } },
+        { name: "Gabe Vincent", team: "LAL", age: 29, darko: -1.89, actualSalary: 11.5, futureSalaries: {} },
+        { name: "Tyrese Martin", team: "BKN", age: 26, darko: -1.89, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Elijah Harkless", team: "GSW", age: 25, darko: -1.91, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Cam Christie", team: "LAC", age: 20, darko: -1.92, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Nick Richards", team: "PHO", age: 28, darko: -1.93, actualSalary: 5.0, futureSalaries: {} },
+        { name: "Bobi Klintman", team: "DET", age: 22, darko: -1.94, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Daeqwon Plowden", team: "GSW", age: 27, darko: -1.94, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Drew Timme", team: "BKN", age: 25, darko: -1.94, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Kevin McCullar Jr.", team: "SAS", age: 24, darko: -1.95, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Doug McDermott", team: "SAC", age: 34, darko: -1.95, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Jase Richardson", team: "ORL", age: 20, darko: -1.96, actualSalary: 3.0, futureSalaries: { "2026-27": 3.13, "2027-28": 3.28, "2028-29": 5.91 } },
+        { name: "Eric Gordon", team: "PHI", age: 37, darko: -1.97, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Nikola Đurišić", team: "ATL", age: 21, darko: -2, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53 } },
+        { name: "Max Shulga", team: "HOU", age: 23, darko: -2.01, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Jeremiah Fears", team: "NOP", age: 21, darko: -2.02, actualSalary: 7.5, futureSalaries: { "2026-27": 7.90, "2027-28": 8.27, "2028-29": 10.51 } },
+        { name: "Alex Antetokounmpo", team: "MIL", age: 24, darko: -2.02, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Sion James", team: "CHO", age: 23, darko: -2.02, actualSalary: 2.3, futureSalaries: { "2026-27": 2.41, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "Koby Brea", team: "MIN", age: 23, darko: -2.03, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Chaney Johnson", team: "PHO", age: 23, darko: -2.04, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Larry Nance Jr.", team: "CLE", age: 33, darko: -2.04, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Cam Whitmore", team: "WAS", age: 21, darko: -2.06, actualSalary: 3.5, futureSalaries: { "2026-27": 5.46 } },
+        { name: "Lindy Waters III", team: "SAS", age: 28, darko: -2.08, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Isaac Jones", team: "DET", age: 25, darko: -2.08, actualSalary: 2.0, futureSalaries: {} },
+        { name: "Trey Alexander", team: "NOP", age: 23, darko: -2.08, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Jared McCain", team: "PHI", age: 21, darko: -2.09, actualSalary: 4.2, futureSalaries: { "2026-27": 4.42, "2027-28": 6.78 } },
+        { name: "Jeremy Sochan", team: "SAS", age: 22, darko: -2.09, actualSalary: 7.1, futureSalaries: {} },
+        { name: "Stanley Umude", team: "MIL", age: 26, darko: -2.1, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Noa Essengue", team: "CHI", age: 19, darko: -2.1, actualSalary: 5.4, futureSalaries: { "2026-27": 5.70, "2027-28": 5.97, "2028-29": 8.23 } },
+        { name: "RayJ Dennis", team: "LAC", age: 24, darko: -2.12, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Enrique Freeman", team: "CLE", age: 25, darko: -2.12, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Anthony Gill", team: "WAS", age: 33, darko: -2.13, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Chris Youngblood", team: "MIN", age: 23, darko: -2.14, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Dario Saric", team: "SAC", age: 31, darko: -2.16, actualSalary: 5.4, futureSalaries: {} },
+        { name: "Danny Wolf", team: "BKN", age: 21, darko: -2.17, actualSalary: 2.8, futureSalaries: { "2026-27": 2.94, "2027-28": 3.08, "2028-29": 5.56 } },
+        { name: "PJ Hall", team: "DEN", age: 23, darko: -2.18, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Rocco Zikarsky", team: "SAS", age: 19, darko: -2.19, actualSalary: 2.8, futureSalaries: {} },
+        { name: "Zeke Nnaji", team: "DEN", age: 25, darko: -2.2, actualSalary: 8.2, futureSalaries: { "2026-27": 7.47, "2027-28": 7.47 } },
+        { name: "Micah Peavy", team: "IND", age: 23, darko: -2.21, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Nigel Hayes", team: "PHO", age: 31, darko: -2.22, actualSalary: 2.0, futureSalaries: {} },
+        { name: "AJ Lawson", team: "LAL", age: 25, darko: -2.22, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Yanic Konan Niederhäuser", team: "CHO", age: 22, darko: -2.23, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Miles Kelly", team: "CHO", age: 23, darko: -2.25, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Yang Hansen", team: "POR", age: 20, darko: -2.25, actualSalary: 4.4, futureSalaries: { "2026-27": 4.64, "2027-28": 4.86, "2028-29": 7.46 } },
+        { name: "Amir Coffey", team: "MIL", age: 28, darko: -2.27, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Tre Mann", team: "CHO", age: 24, darko: -2.28, actualSalary: 8.0, futureSalaries: { "2026-27": 8.00, "2027-28": 8.00 } },
+        { name: "Taelon Peter", team: "HOU", age: 23, darko: -2.28, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Sharife Cooper", team: "LAC", age: 24, darko: -2.31, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Rasheer Fleming", team: "PHO", age: 23, darko: -2.31, actualSalary: 1.2, futureSalaries: { "2026-27": 2.15, "2027-28": 2.52, "2028-29": 2.73, "2029-30": 5.94 } },
+        { name: "Chaz Lanier", team: "DET", age: 23, darko: -2.32, actualSalary: 1.4, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "GG Jackson", team: "MEM", age: 21, darko: -2.34, actualSalary: 2.2, futureSalaries: { "2026-27": 2.41 } },
+        { name: "Ethan Thompson", team: "UTA", age: 26, darko: -2.36, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Malaki Branham", team: "WAS", age: 22, darko: -2.37, actualSalary: 5.0, futureSalaries: {} },
+        { name: "Javon Small", team: "POR", age: 23, darko: -2.38, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Cody Williams", team: "UTA", age: 21, darko: -2.39, actualSalary: 5.7, futureSalaries: { "2026-27": 6.02, "2027-28": 7.67 } },
+        { name: "Rayan Rupert", team: "POR", age: 21, darko: -2.4, actualSalary: 2.2, futureSalaries: {} },
+        { name: "MarJon Beauchamp", team: "MIL", age: 25, darko: -2.41, actualSalary: 4.8, futureSalaries: {} },
+        { name: "N'Faly Dante", team: "HOU", age: 24, darko: -2.41, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Kobe Bufkin", team: "ATL", age: 22, darko: -2.42, actualSalary: 4.3, futureSalaries: {} },
+        { name: "Jordan Clarkson", team: "NYK", age: 33, darko: -2.43, actualSalary: 16.6, futureSalaries: {} },
+        { name: "Jahmai Mashack", team: "OKC", age: 22, darko: -2.44, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Jahmir Young", team: "DEN", age: 25, darko: -2.45, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Chris Paul", team: "LAC", age: 40, darko: -2.48, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Jamir Watkins", team: "MIN", age: 24, darko: -2.48, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Kevin Love", team: "UTA", age: 37, darko: -2.48, actualSalary: 4.2, futureSalaries: {} },
+        { name: "Kobe Sanders", team: "POR", age: 23, darko: -2.48, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ben Saraf", team: "NYK", age: 19, darko: -2.49, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Lachlan Olbrich", team: "MIN", age: 22, darko: -2.49, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Tyrese Proctor", team: "CLE", age: 21, darko: -2.52, actualSalary: 1.2, futureSalaries: {} },
+        { name: "DeAndre Jordan", team: "NOP", age: 37, darko: -2.54, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Will Riley", team: "ORL", age: 19, darko: -2.54, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Nolan Traore", team: "BRK", age: 19, darko: -2.55, actualSalary: 3.8, futureSalaries: { "2026-27": 4.00, "2027-28": 4.19, "2028-29": 6.46 } },
+        { name: "Isaiah Collier", team: "UTA", age: 21, darko: -2.57, actualSalary: 2.6, futureSalaries: { "2026-27": 2.76, "2027-28": 4.99 } },
+        { name: "Bennedict Mathurin", team: "IND", age: 23, darko: -2.58, actualSalary: 9.2, futureSalaries: {} },
+        { name: "Adou Thiero", team: "LAL", age: 21, darko: -2.6, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53 } },
+        { name: "Chucky Hepburn", team: "DET", age: 22, darko: -2.6, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Jett Howard", team: "ORL", age: 22, darko: -2.6, actualSalary: 5.5, futureSalaries: { "2026-27": 7.34 } },
+        { name: "Bruce Brown", team: "DEN", age: 29, darko: -2.62, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Brooks Barnhizer", team: "OKC", age: 24, darko: -2.64, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Dennis Schroder", team: "SAC", age: 32, darko: -2.65, actualSalary: 14.1, futureSalaries: { "2026-27": 14.81, "2027-28": 15.51 } },
+        { name: "KJ Simpson", team: "CHO", age: 23, darko: -2.65, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Mohamed Diawara", team: "NYK", age: 20, darko: -2.68, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Terrence Shannon Jr.", team: "MIN", age: 25, darko: -2.7, actualSalary: 2.7, futureSalaries: { "2026-27": 2.80, "2027-28": 5.05 } },
+        { name: "Ryan Nembhard", team: "IND", age: 23, darko: -2.71, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Javonte Cooke", team: "MIL", age: 25, darko: -2.72, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Ace Bailey", team: "UTA", age: 19, darko: -2.73, actualSalary: 9.1, futureSalaries: { "2026-27": 9.52, "2027-28": 9.98, "2028-29": 12.64 } },
+        { name: "Vladislav Goldin", team: "SAC", age: 24, darko: -2.75, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Patrick Williams", team: "CHI", age: 24, darko: -2.76, actualSalary: 18.0, futureSalaries: { "2026-27": 18.00, "2027-28": 18.00, "2028-29": 18.00 } },
+        { name: "Justin Edwards", team: "PHI", age: 22, darko: -2.78, actualSalary: 2.0, futureSalaries: { "2026-27": 2.41, "2027-28": 2.62 } },
+        { name: "Jarace Walker", team: "IND", age: 22, darko: -2.78, actualSalary: 6.7, futureSalaries: { "2026-27": 8.48 } },
+        { name: "Bronny James", team: "LAL", age: 21, darko: -2.81, actualSalary: 2.0, futureSalaries: { "2026-27": 2.30, "2027-28": 2.49 } },
+        { name: "Terry Rozier", team: "MIA", age: 31, darko: -2.83, actualSalary: 26.6, futureSalaries: {} },
+        { name: "Tyson Etienne", team: "BKN", age: 26, darko: -2.87, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Caleb Love", team: "LAL", age: 24, darko: -2.88, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Hunter Dickinson", team: "HOU", age: 25, darko: -2.9, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Kyle Lowry", team: "PHI", age: 39, darko: -2.9, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Nick Smith Jr.", team: "CHO", age: 21, darko: -2.94, actualSalary: 2.7, futureSalaries: {} },
+        { name: "Hunter Tyson", team: "DEN", age: 25, darko: -3.03, actualSalary: 2.2, futureSalaries: {} },
+        { name: "Garrett Temple", team: "TOR", age: 39, darko: -3.07, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Kam Jones", team: "PHI", age: 23, darko: -3.17, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Colin Castleton", team: "MEM", age: 25, darko: -3.17, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Jericho Sims", team: "MIN", age: 27, darko: -3.22, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Curtis Jones", team: "SAC", age: 24, darko: -3.23, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Malevy Leons", team: "OKC", age: 26, darko: -3.25, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Bismack Biyombo", team: "SAS", age: 33, darko: -3.3, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Orlando Robinson", team: "SAC", age: 25, darko: -3.35, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Julian Strawther", team: "DEN", age: 23, darko: -3.46, actualSalary: 2.7, futureSalaries: { "2026-27": 4.83 } },
+        { name: "Rob Dillingham", team: "MIN", age: 21, darko: -3.47, actualSalary: 6.6, futureSalaries: { "2026-27": 6.89, "2027-28": 8.76 } },
+        { name: "Trey Jemison", team: "NOP", age: 26, darko: -3.5, actualSalary: 0.0, futureSalaries: {} },
+        { name: "Johni Broome", team: "PHI", age: 23, darko: -3.55, actualSalary: 1.3, futureSalaries: { "2026-27": 2.15, "2027-28": 2.53, "2028-29": 2.74 } },
+        { name: "Joe Ingles", team: "MIN", age: 38, darko: -3.61, actualSalary: 2.3, futureSalaries: {} },
+        { name: "Kyle Kuzma", team: "MIL", age: 30, darko: -3.66, actualSalary: 22.4, futureSalaries: { "2026-27": 20.35 } },
+        { name: "AJ Johnson", team: "WAS", age: 21, darko: -3.75, actualSalary: 3.1, futureSalaries: { "2026-27": 3.24, "2027-28": 5.49 } },
+        { name: "Amari Williams", team: "NYK", age: 24, darko: -3.77, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Carter Bryant", team: "PHX", age: 19, darko: -3.82, actualSalary: 1.2, futureSalaries: {} },
+        { name: "Carlton Carrington", team: "WAS", age: 20, darko: -3.86, actualSalary: 4.7, futureSalaries: { "2026-27": 4.90, "2027-28": 7.26 } },
+        { name: "Jordan Hawkins", team: "NOP", age: 23, darko: -3.91, actualSalary: 4.7, futureSalaries: { "2026-27": 7.02 } },
+        { name: "Jeff Green", team: "HOU", age: 39, darko: -4.81, actualSalary: 2.3, futureSalaries: {} }
+        ];
+
+        const NBASalaryCalculator = () => {
+            const [comparisons, setComparisons] = useState([{
+                id: 1,
+                selectedPlayer: null,
+                games: 70,
+                minutes: 30,
+                improvement: 0,
+                searchTerm: '',
+                showDropdown: false
+            }]);
+
+            const getDarkoLabel = (darko) => {
+                if (darko >= 6.0) return "MVP Level";
+                if (darko >= 4.0) return "All-NBA";
+                if (darko >= 2.0) return "All-Star";
+                if (darko >= 1.0) return "Quality Starter";
+                if (darko >= -0.9) return "Average Player";
+                if (darko >= -2.0) return "Bench";
+                return "Replacement Level";
+            };
+            const calculateSalary = (games, minutes, darko, adjustment) => {
+                            const adjustedDarko = darko + adjustment;
+                            let salary = (games * minutes / 1475 * (adjustedDarko + 3.0)) * 4.32;
+                            
+                            // Give more value to top end wins
+                            if (adjustedDarko > 4) {
+                                salary = salary * 1.09; // 9% boost for elite players
+                            } else if (adjustedDarko > 2) {
+                                salary = salary * 1.04; // 4% boost
+                            } else if (adjustedDarko > 1) {
+                                salary = salary * 1.02; // 2% boost
+                            } else if (adjustedDarko < 1) {
+                                salary = salary * 0.90; // 10% reduction
+                            }
+                            
+                            if (salary < 3.0) return "Minimum Salary";
+                            return salary.toFixed(1);
+                        };
+            const addComparison = () => {
+                setComparisons([...comparisons, {
+                    id: Date.now(),
+                    selectedPlayer: null,
+                    games: 70,
+                    minutes: 30,
+                    improvement: 0,
+                    searchTerm: '',
+                    showDropdown: false
+                }]);
+            };
+
+            const removeComparison = (id) => {
+                if (comparisons.length > 1) {
+                    setComparisons(comparisons.filter(c => c.id !== id));
+                }
+            };
+
+            const updateComparison = (id, field, value) => {
+                setComparisons(comparisons.map(c => 
+                    c.id === id ? { ...c, [field]: value } : c
+                ));
+            };
+
+            const selectPlayer = (id, player) => {
+                setComparisons(comparisons.map(c => 
+                    c.id === id ? { 
+                        ...c, 
+                        selectedPlayer: player,
+                        searchTerm: player.name,
+                        showDropdown: false
+                    } : c
+                ));
+            };
+
+            const getFilteredPlayers = (searchTerm) => {
+                if (!searchTerm) return [];
+                return PLAYER_DATA.filter(p => 
+                    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+                ).slice(0, 10);
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
+                    <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">NBA Salary Model</h1>
+                        <p className="text-gray-600">Calculate contract value based on <a href="https://apanalytics.shinyapps.io/DARKO/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">DARKO</a> and custom minutes projection.</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Salary model created by <a href="https://bsky.app/profile/stephnoh.bsky.social" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">Steph Noh</a>. DARKO last updated 1/21/26. 
+                        </p>
+                    </div>
+
+                    <div className="player-grid">
+                        {comparisons.map((comp, index) => (
+                            <div key={comp.id} className="bg-white rounded-lg shadow-lg p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-lg font-semibold text-gray-700">Player {index + 1}</h2>
+                                    {comparisons.length > 1 && (
+                                        <button 
+                                            onClick={() => removeComparison(comp.id)}
+                                            className="text-red-500 hover:text-red-700"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="mb-4 relative">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Player Name</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={comp.searchTerm}
+                                            onChange={(e) => {
+                                                setComparisons(comparisons.map(c => 
+                                                    c.id === comp.id ? { 
+                                                        ...c, 
+                                                        searchTerm: e.target.value,
+                                                        showDropdown: true,
+                                                        selectedPlayer: null
+                                                    } : c
+                                                ));
+                                            }}
+                                            onFocus={() => updateComparison(comp.id, 'showDropdown', true)}
+                                            placeholder="Start typing player name..."
+                                            className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                        <div className="absolute left-3 top-2.5 text-gray-400">
+                                            <Search size={20} />
+                                        </div>
+                                    </div>
+                                    
+                                    {comp.showDropdown && comp.searchTerm && !comp.selectedPlayer && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            {getFilteredPlayers(comp.searchTerm).map(player => (
+                                                <button
+                                                    key={player.name}
+                                                    onClick={() => selectPlayer(comp.id, player)}
+                                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100"
+                                                >
+                                                    <div className="font-medium">{player.name}</div>
+                                                    <div className="text-sm text-gray-500">DARKO: {player.darko}</div>
+                                                </button>
+                                            ))}
+                                            {getFilteredPlayers(comp.searchTerm).length === 0 && (
+                                                <div className="px-4 py-2 text-gray-500">No players found</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {comp.selectedPlayer && (
+                                    <>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Estimate games played (1-82): {comp.games}</label>
+                                            <input
+                                                type="range" min="1" max="82"
+                                                value={comp.games}
+                                                onChange={(e) => updateComparison(comp.id, 'games', parseInt(e.target.value))}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Estimate minutes per game (0-48): {comp.minutes}</label>
+                                            <input
+                                                type="range" min="0" max="48"
+                                                value={comp.minutes}
+                                                onChange={(e) => updateComparison(comp.id, 'minutes', parseInt(e.target.value))}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">I know ball better than DARKO. I'm going to adjust DARKO by: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
+                                            <input
+                                                type="range" min="-5" max="5" step="0.1"
+                                                value={comp.improvement}
+                                                onChange={(e) => updateComparison(comp.id, 'improvement', parseFloat(e.target.value))}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                            <div className="mt-3 p-2 bg-gray-100 rounded text-sm">
+                                                <div>Actual DARKO: <span className="font-semibold">{comp.selectedPlayer.darko.toFixed(1)}</span> ({getDarkoLabel(comp.selectedPlayer.darko)})</div>
+                                                <div>Adjusted DARKO: <span className="font-semibold">{(comp.selectedPlayer.darko + comp.improvement).toFixed(1)}</span> ({getDarkoLabel(comp.selectedPlayer.darko + comp.improvement)})</div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                                            {/* Current Season Summary */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-blue-200">
+                                                <div>
+                                                    <div className="text-sm text-gray-600 mb-1">Projected Value for 2025-26 season</div>
+                                                    <div className="text-3xl font-bold text-blue-600">
+                                                        {calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement) === "Minimum Salary" 
+                                                            ? "Minimum Salary"
+                                                            : `$${calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement)}M`
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div className="pt-4 md:pt-0 md:pl-4">
+                                                    <div className="text-sm text-gray-600 mb-1">Actual 2025-26 Salary</div>
+                                                    <div className="text-3xl font-bold text-gray-700">
+                                                        {comp.selectedPlayer.actualSalary && comp.selectedPlayer.actualSalary > 0 
+                                                            ? `$${comp.selectedPlayer.actualSalary.toFixed(1)}M` 
+                                                            : "Free Agent"
+                                                        }
+                                                    </div>
+                                                    {(() => {
+                                                        const projected = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
+                                                        if (!comp.selectedPlayer.actualSalary) return null;
+                                                        
+                                                        // Use 0 floor if projected value is Minimum Salary
+                                                        const projValNum = projected === "Minimum Salary" ? 0 : parseFloat(projected);
+                                                        const diff = projValNum - comp.selectedPlayer.actualSalary;
+                                                        
+                                                        return (
+                                                            <div className={`text-sm font-medium mt-1 ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}M surplus
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            {/* Future Projections with Aging Curve, Inflation, and Total Surplus */}
+                                            {(() => {
+                                                const getAgingDelta = (age) => {
+                                                    if (age < 21) return 0.65;
+                                                    if (age < 24) return 0.40;
+                                                    if (age < 27) return 0.10;
+                                                    if (age < 30) return -0.05;
+                                                    if (age < 33) return -0.25;
+                                                    return -0.55;
+                                                };
+
+                                                const inflationScalers = {
+                                                    "2026-27": 1.074,
+                                                    "2027-28": 1.127,
+                                                    "2028-29": 1.184,
+                                                    "2029-30": 1.240,
+                                                    "2030-31": 1.305
+                                                };
+
+                                                // Initialize Total Surplus with 2025-26 current surplus using $0M floor logic
+                                                let runningTotalSurplus = 0;
+                                                const currentProj = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
+                                                if (comp.selectedPlayer.actualSalary) {
+                                                    const currentProjNum = currentProj === "Minimum Salary" ? 0 : parseFloat(currentProj);
+                                                    runningTotalSurplus = currentProjNum - comp.selectedPlayer.actualSalary;
+                                                }
+
+                                                const futureYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
+                                                
+                                                return (
+                                                    <div className="mt-4 pt-4 border-t border-blue-200">
+                                                        <div className="text-xs font-bold text-blue-800 uppercase mb-3 tracking-wider text-center">Multi-Year Projections</div>
+                                                        <div className="space-y-2">
+                                                            {futureYears.map((seasonLabel, idx) => {
+                                                                const yearOffset = idx + 1;
+                                                                const projectedAge = comp.selectedPlayer.age + yearOffset;
+                                                                
+                                                                let cumulativeDelta = 0;
+                                                                for (let i = 0; i < yearOffset; i++) {
+                                                                    cumulativeDelta += getAgingDelta(comp.selectedPlayer.age + i);
+                                                                }
+
+                                                                const currentProjectedDarko = comp.selectedPlayer.darko + comp.improvement + cumulativeDelta;
+                                                                const rawMarketValue = calculateSalary(comp.games, comp.minutes, currentProjectedDarko, 0);
+                                                                
+                                                                let inflatedValueNum = 0;
+                                                                let projectedMarketValueLabel;
+                                                                if (rawMarketValue === "Minimum Salary") {
+                                                                    projectedMarketValueLabel = "Min";
+                                                                    inflatedValueNum = 0; // Use $0M floor for calculation
+                                                                } else {
+                                                                    inflatedValueNum = parseFloat(rawMarketValue) * inflationScalers[seasonLabel];
+                                                                    projectedMarketValueLabel = `$${inflatedValueNum.toFixed(1)}M`;
+                                                                }
+
+                                                                const actualFutureSal = comp.selectedPlayer.futureSalaries?.[seasonLabel];
+
+                                                                // Add to total surplus tracker if not a free agent
+                                                                if (actualFutureSal) {
+                                                                    runningTotalSurplus += (inflatedValueNum - actualFutureSal);
+                                                                }
+
+                                                                return (
+                                                                    <div key={seasonLabel} className="grid grid-cols-7 items-center text-sm border-b border-blue-100 pb-1 last:border-0 gap-2">
+                                                                        <span className="col-span-2 text-gray-600 font-medium">
+                                                                            {seasonLabel} <span className="text-[10px] opacity-75 uppercase">({projectedAge})</span>
+                                                                        </span>
+                                                                        <span className="col-span-1 font-semibold text-blue-700 text-center">
+                                                                            {projectedMarketValueLabel}
+                                                                        </span>
+                                                                        <span className="col-span-2 text-gray-500 text-xs italic text-center">
+                                                                            {actualFutureSal ? `Actual: $${Number(actualFutureSal).toFixed(1)}M` : "Free Agent"}
+                                                                        </span>
+                                                                        <span className="col-span-2 text-right">
+                                                                            {actualFutureSal && (
+                                                                                <span className={`text-xs font-bold ${(inflatedValueNum - actualFutureSal) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                    ({(inflatedValueNum - actualFutureSal) > 0 ? '+' : ''}{(inflatedValueNum - actualFutureSal).toFixed(1)}M)
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        
+                                                        {/* Total Surplus Line */}
+                                                        <div className="mt-4 pt-3 border-t-2 border-blue-300 flex justify-between items-center">
+                                                            <span className="text-xs font-bold text-blue-900 uppercase">Total Contract Surplus Value:</span>
+                                                            <span className={`text-xs font-bold ${runningTotalSurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                {runningTotalSurplus > 0 ? '+' : ''}{runningTotalSurplus.toFixed(1)}M
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                       
+                                    </>
+                                )}
+
+                                {!comp.selectedPlayer && comp.searchTerm === '' && (
+                                    <div className="text-center py-8 text-gray-400">Search and select a player to calculate salary</div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-6 text-center">
+                        <button
+                            onClick={addComparison}
+                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium shadow-lg"
+                        >
+                            <Plus size={20} />
+                            Add Player Comparison
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<NBASalaryCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
