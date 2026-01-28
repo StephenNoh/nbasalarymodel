@@ -761,7 +761,7 @@
                                         </div>
 
                                         <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Adjust DARKO: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">I know ball better than DARKO. I'm going to adjust DARKO by: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
                                             <input
                                                 type="range" min="-5" max="5" step="0.1"
                                                 value={comp.improvement}
