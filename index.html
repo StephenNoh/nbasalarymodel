@@ -609,23 +609,24 @@
                 if (darko >= -2.0) return "Bench";
                 return "Replacement Level";
             };
-            const calculateSalary = (games, minutes, darko, adjustment) => {
-                            const adjustedDarko = darko + adjustment;
-                            let salary = (games * minutes / 1475 * (adjustedDarko + 3.0)) * 4.32;
-                            
-                            // Give more value to top end wins and less to lower end wins
-                            const boostFactor = Math.pow(Math.abs(adjustedDarko) / 4, 1.2) * 0.10;
-                            const cappedBoost = Math.min(boostFactor, 0.10); // Cap boost at 10%
 
-                            if (adjustedDarko > 0) {
-                                salary = salary * (1 + cappedBoost);
-                            } else if (adjustedDarko < 0) {
-                                salary = salary * (1 - cappedBoost);
-                            }
-                            
-                            if (salary < 3.0) return "Minimum Salary";
-                            return salary.toFixed(1);
-                        };
+            const calculateSalary = (games, minutes, darko, adjustment) => {
+                const adjustedDarko = darko + adjustment;
+                let salary = (games * minutes / 1475 * (adjustedDarko + 3.0)) * 4.32;
+                
+                const boostFactor = Math.pow(Math.abs(adjustedDarko) / 4, 1.2) * 0.10;
+                const cappedBoost = Math.min(boostFactor, 0.10);
+
+                if (adjustedDarko > 0) {
+                    salary = salary * (1 + cappedBoost);
+                } else if (adjustedDarko < 0) {
+                    salary = salary * (1 - cappedBoost);
+                }
+                
+                if (salary < 3.0) return "Minimum Salary";
+                return salary.toFixed(1);
+            };
+
             const addComparison = () => {
                 setComparisons([...comparisons, {
                     id: Date.now(),
@@ -760,7 +761,7 @@
                                         </div>
 
                                         <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">I know ball better than DARKO. I'm going to adjust DARKO by: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Adjust DARKO: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
                                             <input
                                                 type="range" min="-5" max="5" step="0.1"
                                                 value={comp.improvement}
@@ -772,20 +773,25 @@
                                                 <div>Adjusted DARKO: <span className="font-semibold">{(comp.selectedPlayer.darko + comp.improvement).toFixed(1)}</span> ({getDarkoLabel(comp.selectedPlayer.darko + comp.improvement)})</div>
                                             </div>
                                         </div>
+
                                         <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
-                                            {/* Current Season Summary */}
+                                            {/* Player Name Title */}
+                                            <div className="text-xs font-bold text-blue-800 uppercase tracking-widest mb-2 border-b border-blue-100 pb-1">
+                                                {comp.selectedPlayer.name}
+                                            </div>
+
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-blue-200">
                                                 <div>
-                                                    <div className="text-sm text-gray-600 mb-1">Projected Value for 2025-26 season</div>
+                                                    <div className="text-sm text-gray-600 mb-1">Projected Value (25-26)</div>
                                                     <div className="text-3xl font-bold text-blue-600">
                                                         {calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement) === "Minimum Salary" 
-                                                            ? "Minimum Salary"
+                                                            ? "Min"
                                                             : `$${calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement)}M`
                                                         }
                                                     </div>
                                                 </div>
                                                 <div className="pt-4 md:pt-0 md:pl-4">
-                                                    <div className="text-sm text-gray-600 mb-1">Actual 2025-26 Salary</div>
+                                                    <div className="text-sm text-gray-600 mb-1">Actual Salary (25-26)</div>
                                                     <div className="text-3xl font-bold text-gray-700">
                                                         {comp.selectedPlayer.actualSalary && comp.selectedPlayer.actualSalary > 0 
                                                             ? `$${comp.selectedPlayer.actualSalary.toFixed(1)}M` 
@@ -795,11 +801,8 @@
                                                     {(() => {
                                                         const projected = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
                                                         if (!comp.selectedPlayer.actualSalary) return null;
-                                                        
-                                                        // Use 0 floor if projected value is Minimum Salary
-                                                        const projValNum = projected === "Minimum Salary" ? 0 : parseFloat(projected);
+                                                        const projValNum = projected === "Minimum Salary" ? 1.1 : parseFloat(projected);
                                                         const diff = projValNum - comp.selectedPlayer.actualSalary;
-                                                        
                                                         return (
                                                             <div className={`text-sm font-medium mt-1 ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                                 {diff > 0 ? '+' : ''}{diff.toFixed(1)}M surplus
@@ -809,9 +812,9 @@
                                                 </div>
                                             </div>
 
-                                            {/* Future Projections with Aging Curve, Inflation, and Total Surplus */}
+                                            {/* Multi-Year Logic */}
                                             {(() => {
-                                               const getAgingDelta = (age) => {
+                                                const getAgingDelta = (age) => {
                                                     if (age < 21) return 0.65;
                                                     if (age < 22) return 0.5;
                                                     if (age < 23) return 0.45;
@@ -828,124 +831,89 @@
                                                     return -1;
                                                 };
 
-
                                                 const inflationScalers = {
-                                                    "2026-27": 1.074,
-                                                    "2027-28": 1.127,
-                                                    "2028-29": 1.184,
-                                                    "2029-30": 1.240,
-                                                    "2030-31": 1.305
+                                                    "2026-27": 1.074, "2027-28": 1.127, "2028-29": 1.184, "2029-30": 1.240, "2030-31": 1.305
                                                 };
 
-                                                // Initialize Total Surplus with 2025-26 current surplus using $0M floor logic
                                                 let runningTotalSurplus = 0;
                                                 const currentProj = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
                                                 if (comp.selectedPlayer.actualSalary) {
-                                                    const currentProjNum = currentProj === "Minimum Salary" ? 0 : parseFloat(currentProj);
+                                                    const currentProjNum = currentProj === "Minimum Salary" ? 1.1 : parseFloat(currentProj);
                                                     runningTotalSurplus = currentProjNum - comp.selectedPlayer.actualSalary;
                                                 }
 
                                                 const futureYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-                                                
+                                                const rows = futureYears.map((seasonLabel, idx) => {
+                                                    const yearOffset = idx + 1;
+                                                    const projectedAge = comp.selectedPlayer.age + yearOffset;
+                                                    let cumulativeDelta = 0;
+                                                    for (let i = 0; i < yearOffset; i++) {
+                                                        cumulativeDelta += getAgingDelta(comp.selectedPlayer.age + i);
+                                                    }
+
+                                                    const currentProjectedDarko = comp.selectedPlayer.darko + comp.improvement + cumulativeDelta;
+                                                    const rawMarketValue = calculateSalary(comp.games, comp.minutes, currentProjectedDarko, 0);
+                                                    
+                                                    let inflatedValueNum = 0;
+                                                    let projectedMarketValueLabel;
+
+                                                    if (rawMarketValue === "Minimum Salary") {
+                                                        projectedMarketValueLabel = "Min";
+                                                        inflatedValueNum = 1.1; 
+                                                    } else {
+                                                        inflatedValueNum = parseFloat(rawMarketValue) * (inflationScalers[seasonLabel] || 1);
+                                                        projectedMarketValueLabel = `$${inflatedValueNum.toFixed(1)}M`;
+                                                    }
+
+                                                    const actualFutureSal = comp.selectedPlayer.futureSalaries?.[seasonLabel];
+                                                    const yearlySurplus = actualFutureSal ? (inflatedValueNum - actualFutureSal) : 0;
+                                                    if (actualFutureSal) runningTotalSurplus += yearlySurplus;
+
+                                                    return (
+                                                        <div key={seasonLabel} className="grid grid-cols-12 items-center border-b border-blue-100 py-2 last:border-0 gap-0">
+                                                            <span className="col-span-4 text-gray-600 font-medium text-sm whitespace-nowrap">
+                                                                {seasonLabel} <span className="text-xs opacity-75">({projectedAge})</span>
+                                                            </span>
+                                                            <span className="col-span-2 font-bold text-blue-700 text-center text-sm">
+                                                                {projectedMarketValueLabel}
+                                                            </span>
+                                                            <span className="col-span-4 text-gray-500 italic text-center text-xs whitespace-nowrap">
+                                                                {actualFutureSal ? `$${Number(actualFutureSal).toFixed(1)}M` : "Free Agent"}
+                                                            </span>
+                                                            <span className="col-span-2 text-right whitespace-nowrap text-sm">
+                                                                {actualFutureSal && (
+                                                                    <span className={`font-bold ${yearlySurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                        {yearlySurplus > 0 ? '+' : ''}{yearlySurplus.toFixed(1)}M
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                });
+
                                                 return (
-                                                   <div className="mt-6 border-t pt-4">
+                                                    <div className="mt-6 border-t pt-4">
                                                         <h3 className="text-lg font-bold text-gray-800 mb-3">Multi-Year Projections</h3>
-                                                        
-                                                        {/* Header Row */}
                                                         <div className="grid grid-cols-12 text-xs font-bold text-blue-800 uppercase tracking-wider mb-1 pb-1 border-b border-blue-200">
                                                             <span className="col-span-4">Season (Age)</span>
                                                             <span className="col-span-2 text-center">Proj.</span>
                                                             <span className="col-span-4 text-center">Actual</span>
                                                             <span className="col-span-2 text-right">Surplus</span>
                                                         </div>
-
-                                                        {/* Data Rows */}
                                                         <div className="space-y-0">
-                                                            {(() => {
-                                                                let runningTotalSurplus = 0;
-                                                                const rows = futureYears.map((seasonLabel, idx) => {
-                                                                    const yearOffset = idx + 1;
-                                                                    const projectedAge = comp.selectedPlayer.age + yearOffset;
-                                                                    
-                                                                    let cumulativeDelta = 0;
-                                                                    for (let i = 0; i < yearOffset; i++) {
-                                                                        cumulativeDelta += getAgingDelta(comp.selectedPlayer.age + i, comp.selectedPlayer.darko);
-                                                                    }
-
-                                                                    const currentProjectedDarko = comp.selectedPlayer.darko + comp.improvement + cumulativeDelta;
-                                                                    const rawMarketValue = calculateSalary(comp.games, comp.minutes, currentProjectedDarko, 0);
-                                                                    
-                                                                    let inflatedValueNum = 0;
-                                                                    let projectedMarketValueLabel;
-
-                                                                    if (rawMarketValue === "Minimum Salary") {
-                                                                        projectedMarketValueLabel = "Min";
-                                                                        inflatedValueNum = 1.1; 
-                                                                    } else {
-                                                                        inflatedValueNum = parseFloat(rawMarketValue) * (inflationScalers[seasonLabel] || 1);
-                                                                        projectedMarketValueLabel = `$${inflatedValueNum.toFixed(1)}M`;
-                                                                    }
-
-                                                                    const actualFutureSal = comp.selectedPlayer.futureSalaries?.[seasonLabel];
-                                                                    const yearlySurplus = actualFutureSal ? (inflatedValueNum - actualFutureSal) : 0;
-                                                                    
-                                                                    if (actualFutureSal) {
-                                                                        runningTotalSurplus += yearlySurplus;
-                                                                    }
-
-                                                                    return (
-                                                                        <div key={seasonLabel} className="grid grid-cols-12 items-center border-b border-blue-100 py-2 last:border-0 gap-0">
-                                                                            {/* Season & Age */}
-                                                                        <span className="col-span-4 text-gray-600 font-medium text-[10px] whitespace-nowrap">
-                                                                            {seasonLabel} <span className="opacity-75">({projectedAge})</span>
-                                                                        </span>
-                                                                        
-                                                                        {/* Projected Market Value */}
-                                                                        <span className="col-span-2 font-bold text-blue-700 text-center text-[11px]">
-                                                                            {projectedMarketValueLabel}
-                                                                        </span>
-                                                                        
-                                                                        {/* Actual Salary */}
-                                                                        <span className="col-span-4 text-gray-500 italic text-center text-[10px] whitespace-nowrap">
-                                                                            {actualFutureSal ? `$${Number(actualFutureSal).toFixed(1)}M` : "Free Agent"}
-                                                                        </span>
-                                                                        
-                                                                        {/* Surplus/Deficit */}
-                                                                        <span className="col-span-2 text-right whitespace-nowrap text-[11px]">
-                                                                            {actualFutureSal && (
-                                                                                <span className={`font-bold ${(inflatedValueNum - actualFutureSal) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                                    {(inflatedValueNum - actualFutureSal) > 0 ? '+' : ''}{(inflatedValueNum - actualFutureSal).toFixed(1)}M
-                                                                                </span>
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                });
-
-                                                                return (
-                                                                    <>
-                                                                        {rows}
-                                                                        {/* Total Surplus Summary */}
-                                                                        <div className="mt-2 p-2 bg-blue-50 rounded flex justify-between items-center">
-                                                                            <span className="text-xs font-bold text-blue-900 uppercase">Total Contract Surplus</span>
-                                                                            <span className={`text-base font-bold ${runningTotalSurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                                {runningTotalSurplus > 0 ? '+' : ''}{runningTotalSurplus.toFixed(1)}M
-                                                                            </span>
-                                                                        </div>
-                                                                    </>
-                                                                );
-                                                            })()}
+                                                            {rows}
+                                                            <div className="mt-2 p-2 bg-blue-50 rounded flex justify-between items-center">
+                                                                <span className="text-xs font-bold text-blue-900 uppercase">Total Contract Surplus</span>
+                                                                <span className={`text-base font-bold ${runningTotalSurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                    {runningTotalSurplus > 0 ? '+' : ''}{runningTotalSurplus.toFixed(1)}M
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
                                             })()}
                                         </div>
-                                       
                                     </>
-                                )}
-
-                                {!comp.selectedPlayer && comp.searchTerm === '' && (
-                                    <div className="text-center py-8 text-gray-400">Search and select a player to calculate salary</div>
                                 )}
                             </div>
                         ))}
