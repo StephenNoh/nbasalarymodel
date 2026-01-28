@@ -865,7 +865,7 @@
                                                     return (
                                                         <div key={seasonLabel} className="grid grid-cols-12 items-center border-b border-blue-100 py-2 last:border-0 gap-0">
                                                             <span className="col-span-4 text-gray-600 font-medium text-sm whitespace-nowrap">
-                                                                {seasonLabel} <span className="text-xs opacity-75">({projectedAge})</span>
+                                                                {seasonLabel} <span className="text-xs opacity-75">({Math.floor(projectedAge)})</span>
                                                             </span>
                                                             <span className="col-span-2 font-bold text-blue-700 text-center text-sm">
                                                                 {projectedMarketValueLabel}
