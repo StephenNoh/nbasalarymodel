@@ -103,6 +103,19 @@
             return salary.toFixed(1);
         };
 
+        const calculateSalaryLebron = (games, minutes, lebron) => {
+            if (lebron == null) return null;
+            const totalMinutes = games * minutes;
+            const aboveReplacement = lebron + 2.7;
+            let salary = (totalMinutes / 1475) * aboveReplacement * 4.32;
+            const boostFactor = Math.pow(Math.abs(aboveReplacement) / 4, 1.2) * 0.10;
+            const cappedBoost = Math.min(boostFactor, 0.10);
+            if (aboveReplacement > 0) salary = salary * (1 + cappedBoost);
+            else if (aboveReplacement < 0) salary = salary * (1 - cappedBoost);
+            if (salary < 3.0) return "Minimum Salary";
+            return salary.toFixed(1);
+        };
+
         const NBASalaryCalculator = () => {
             const [comparisons, setComparisons] = useState([{
                 id: 1,
@@ -160,7 +173,7 @@
                 <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
                     <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">NBA Salary Model</h1>
-                        <p className="text-gray-600">Calculate contract value based on <a href="https://apanalytics.shinyapps.io/DARKO/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">DARKO</a> and custom minutes projection.</p>
+                                        <p className="text-gray-600">Calculate contract value based on <a href="https://apanalytics.shinyapps.io/DARKO/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">DARKO</a>, <a href="https://www.nbastuffer.com/analytics101/lebron/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">LEBRON</a>, and custom minutes projection.</p>
                         <p className="text-xs text-gray-500 mt-2">
                             Salary model created by <a href="https://bsky.app/profile/stephnoh.bsky.social" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">Steph Noh</a>. DARKO last updated 1/28/26. Methodology <a href="https://github.com/StephenNoh/nbasalarymodel/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">here</a>.
                         </p>
@@ -215,7 +228,7 @@
                                                     className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100"
                                                 >
                                                     <div className="font-medium">{player.name}</div>
-                                                    <div className="text-sm text-gray-500">DARKO: {player.darko}</div>
+                                                    <div className="text-sm text-gray-500">DARKO: {player.darko} {player.lebron != null ? ` · LEBRON: ${player.lebron}` : ''}</div>
                                                 </button>
                                             ))}
                                             {getFilteredPlayers(comp.searchTerm).length === 0 && (
@@ -266,10 +279,10 @@
                                                 {comp.selectedPlayer.name}
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-blue-200">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 divide-y md:divide-y-0 md:divide-x divide-blue-200">
                                                 <div>
-                                                    <div className="text-sm text-gray-600 mb-1">Projected Value (25-26)</div>
-                                                    <div className="text-3xl font-bold text-blue-600">
+                                                    <div className="text-sm text-gray-600 mb-1">Projected (DARKO) 25-26</div>
+                                                    <div className="text-2xl font-bold text-blue-600">
                                                         {calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement) === "Minimum Salary" 
                                                             ? "Min"
                                                             : `$${calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement)}M`
@@ -277,8 +290,18 @@
                                                     </div>
                                                 </div>
                                                 <div className="pt-4 md:pt-0 md:pl-4">
+                                                    <div className="text-sm text-gray-600 mb-1">Projected (LEBRON) 25-26</div>
+                                                    <div className="text-2xl font-bold text-amber-600">
+                                                        {(() => {
+                                                            const lebronVal = calculateSalaryLebron(comp.games, comp.minutes, comp.selectedPlayer.lebron);
+                                                            if (lebronVal == null) return <span className="text-gray-400">N/A</span>;
+                                                            return lebronVal === "Minimum Salary" ? "Min" : `$${lebronVal}M`;
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-4 md:pt-0 md:pl-4">
                                                     <div className="text-sm text-gray-600 mb-1">Actual Salary (25-26)</div>
-                                                    <div className="text-3xl font-bold text-gray-700">
+                                                    <div className="text-2xl font-bold text-gray-700">
                                                         {comp.selectedPlayer.actualSalary && comp.selectedPlayer.actualSalary > 0 
                                                             ? `$${comp.selectedPlayer.actualSalary.toFixed(1)}M` 
                                                             : "Free Agent"
@@ -286,12 +309,23 @@
                                                     </div>
                                                     {(() => {
                                                         const projected = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
+                                                        const projectedLebron = calculateSalaryLebron(comp.games, comp.minutes, comp.selectedPlayer.lebron);
                                                         if (!comp.selectedPlayer.actualSalary) return null;
                                                         const projValNum = projected === "Minimum Salary" ? 0 : parseFloat(projected);
-                                                        const diff = projValNum - comp.selectedPlayer.actualSalary;
+                                                        const diffDarko = projValNum - comp.selectedPlayer.actualSalary;
+                                                        const diffLebron = projectedLebron != null
+                                                            ? (projectedLebron === "Minimum Salary" ? 0 : parseFloat(projectedLebron)) - comp.selectedPlayer.actualSalary
+                                                            : null;
                                                         return (
-                                                            <div className={`text-sm font-medium mt-1 ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}M surplus
+                                                            <div className="text-sm font-medium mt-1 space-y-0.5">
+                                                                <div className={diffDarko > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                                    {diffDarko > 0 ? '+' : ''}{diffDarko.toFixed(1)}M vs DARKO
+                                                                </div>
+                                                                {diffLebron !== null && (
+                                                                    <div className={diffLebron > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                                        {diffLebron > 0 ? '+' : ''}{diffLebron.toFixed(1)}M vs LEBRON
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })()}
@@ -299,11 +333,17 @@
                                             </div>
 
                                             {(() => {
-                                                let runningTotalSurplus = 0;
+                                                let runningTotalSurplusDarko = 0;
+                                                let runningTotalSurplusLebron = 0;
                                                 const currentProj = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
+                                                const currentProjLebron = calculateSalaryLebron(comp.games, comp.minutes, comp.selectedPlayer.lebron);
                                                 if (comp.selectedPlayer.actualSalary) {
                                                     const currentProjNum = currentProj === "Minimum Salary" ? 0 : parseFloat(currentProj);
-                                                    runningTotalSurplus = currentProjNum - comp.selectedPlayer.actualSalary;
+                                                    runningTotalSurplusDarko = currentProjNum - comp.selectedPlayer.actualSalary;
+                                                    if (currentProjLebron != null) {
+                                                        const currentLebronNum = currentProjLebron === "Minimum Salary" ? 0 : parseFloat(currentProjLebron);
+                                                        runningTotalSurplusLebron = currentLebronNum - comp.selectedPlayer.actualSalary;
+                                                    }
                                                 }
 
                                                 const futureYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
@@ -329,27 +369,54 @@
                                                         projectedMarketValueLabel = `$${inflatedValueNum.toFixed(1)}M`;
                                                     }
 
+                                                    const hasLebron = comp.selectedPlayer.lebron != null;
+                                                    const currentProjectedLebron = hasLebron ? comp.selectedPlayer.lebron + cumulativeDelta : null;
+                                                    const rawLebronValue = hasLebron ? calculateSalaryLebron(comp.games, comp.minutes, currentProjectedLebron) : null;
+                                                    let projectedLebronLabel = "N/A";
+                                                    let inflatedLebronNum = 0;
+                                                    if (rawLebronValue !== null) {
+                                                        if (rawLebronValue === "Minimum Salary") projectedLebronLabel = "Min";
+                                                        else {
+                                                            inflatedLebronNum = parseFloat(rawLebronValue) * (INFLATION_SCALERS[seasonLabel] || 1);
+                                                            projectedLebronLabel = `$${inflatedLebronNum.toFixed(1)}M`;
+                                                        }
+                                                    }
+
                                                     const actualFutureSal = comp.selectedPlayer.futureSalaries?.[seasonLabel];
-                                                    const yearlySurplus = actualFutureSal ? (inflatedValueNum - actualFutureSal) : 0;
-                                                    if (actualFutureSal) runningTotalSurplus += yearlySurplus;
+                                                    const yearlySurplusDarko = actualFutureSal ? (inflatedValueNum - actualFutureSal) : 0;
+                                                    const yearlySurplusLebron = actualFutureSal && hasLebron ? (inflatedLebronNum - actualFutureSal) : null;
+                                                    if (actualFutureSal) {
+                                                        runningTotalSurplusDarko += yearlySurplusDarko;
+                                                        if (yearlySurplusLebron !== null) runningTotalSurplusLebron += yearlySurplusLebron;
+                                                    }
 
                                                     return (
                                                         <div key={seasonLabel} className="grid grid-cols-12 items-center border-b border-blue-100 py-2 last:border-0 gap-0">
-                                                            <span className="col-span-4 text-gray-600 font-medium text-sm whitespace-nowrap">
+                                                            <span className="col-span-3 text-gray-600 font-medium text-sm whitespace-nowrap">
                                                                 {seasonLabel} <span className="text-xs opacity-75">({Math.floor(projectedAge)})</span>
                                                             </span>
                                                             <span className="col-span-2 font-bold text-blue-700 text-center text-sm">
                                                                 {projectedMarketValueLabel}
                                                             </span>
-                                                            <span className="col-span-4 text-gray-500 italic text-center text-xs whitespace-nowrap">
+                                                            <span className="col-span-2 font-bold text-amber-600 text-center text-sm">
+                                                                {projectedLebronLabel}
+                                                            </span>
+                                                            <span className="col-span-2 text-gray-500 italic text-center text-xs whitespace-nowrap">
                                                                 {actualFutureSal ? `$${Number(actualFutureSal).toFixed(1)}M` : "Free Agent"}
                                                             </span>
-                                                            <span className="col-span-2 text-right whitespace-nowrap text-sm">
+                                                            <span className="col-span-1 text-right whitespace-nowrap text-xs">
                                                                 {actualFutureSal && (
-                                                                    <span className={`font-bold ${yearlySurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                        {yearlySurplus > 0 ? '+' : ''}{yearlySurplus.toFixed(1)}M
+                                                                    <span className={`font-bold ${yearlySurplusDarko > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                        {yearlySurplusDarko > 0 ? '+' : ''}{yearlySurplusDarko.toFixed(1)}M
                                                                     </span>
                                                                 )}
+                                                            </span>
+                                                            <span className="col-span-2 text-right whitespace-nowrap text-xs">
+                                                                {actualFutureSal && yearlySurplusLebron !== null ? (
+                                                                    <span className={`font-bold ${yearlySurplusLebron > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                        {yearlySurplusLebron > 0 ? '+' : ''}{yearlySurplusLebron.toFixed(1)}M
+                                                                    </span>
+                                                                ) : actualFutureSal && !hasLebron ? <span className="text-gray-400">—</span> : null}
                                                             </span>
                                                         </div>
                                                     );
@@ -359,17 +426,23 @@
                                                     <div className="mt-6 border-t pt-4">
                                                         <h3 className="text-lg font-bold text-gray-800 mb-3">Multi-Year Projections</h3>
                                                         <div className="grid grid-cols-12 text-xs font-bold text-blue-800 uppercase tracking-wider mb-1 pb-1 border-b border-blue-200">
-                                                            <span className="col-span-4">Season (Age)</span>
-                                                            <span className="col-span-2 text-center">Proj.</span>
-                                                            <span className="col-span-4 text-center">Actual</span>
-                                                            <span className="col-span-2 text-right">Surplus</span>
+                                                            <span className="col-span-3">Season (Age)</span>
+                                                            <span className="col-span-2 text-center">DARKO</span>
+                                                            <span className="col-span-2 text-center">LEBRON</span>
+                                                            <span className="col-span-2 text-center">Actual</span>
+                                                            <span className="col-span-1 text-right">Surplus DARKO</span>
+                                                            <span className="col-span-2 text-right">Surplus LEBRON</span>
                                                         </div>
                                                         <div className="space-y-0">
                                                             {rows}
-                                                            <div className="mt-2 p-2 bg-blue-50 rounded flex justify-between items-center">
-                                                                <span className="text-xs font-bold text-blue-900 uppercase">Total Contract Surplus</span>
-                                                                <span className={`text-base font-bold ${runningTotalSurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                    {runningTotalSurplus > 0 ? '+' : ''}{runningTotalSurplus.toFixed(1)}M
+                                                            <div className="mt-2 p-2 bg-blue-50 rounded flex flex-wrap gap-x-4 gap-y-1 justify-between items-center">
+                                                                <span className="text-xs font-bold text-blue-900 uppercase">Total Surplus DARKO</span>
+                                                                <span className={`text-sm font-bold ${runningTotalSurplusDarko > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                    {runningTotalSurplusDarko > 0 ? '+' : ''}{runningTotalSurplusDarko.toFixed(1)}M
+                                                                </span>
+                                                                <span className="text-xs font-bold text-amber-900 uppercase">Total Surplus LEBRON</span>
+                                                                <span className={`text-sm font-bold ${runningTotalSurplusLebron > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                    {comp.selectedPlayer.lebron != null ? (runningTotalSurplusLebron > 0 ? '+' : '') + runningTotalSurplusLebron.toFixed(1) + 'M' : '—'}
                                                                 </span>
                                                             </div>
                                                         </div>
