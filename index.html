@@ -6,397 +6,46 @@
     <title>NBA Salary Model</title>
     <link rel="icon" type="image/png" href="favicon.png">
 
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        .player-grid {
-            display: grid;
-            gap: 1.5rem;
-            grid-template-columns: 1fr;
-        }
-    </style>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- React -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <script src="players.js"></script>
+    <!-- Babel (for JSX transformation) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
     <div id="root"></div>
 
+    <!-- 
+        Module Loading Order:
+        1. constants.js - Configuration and lookup tables (no dependencies)
+        2. utils.js - Helper functions (depends on constants)
+        3. components.jsx - React UI components (depends on React)
+        4. app.jsx - Main application (depends on all above)
+    -->
+
+    <!-- Plain JS modules (no JSX) -->
+    <script src="js/constants.js"></script>
+    <script src="js/utils.js"></script>
+
+    <!-- JSX modules (require Babel transpilation) -->
+    <script type="text/babel" src="js/components.jsx"></script>
+    <script type="text/babel" src="js/app.jsx"></script>
+
+    <!-- Mount the application -->
     <script type="text/babel">
-        const { useState, useMemo } = React;
-
-        // --- Original Icons ---
-        const Search = ({ size = 20 }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-            </svg>
-        );
-
-        const Plus = ({ size = 20 }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-        );
-
-        const Trash2 = ({ size = 20 }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-            </svg>
-        );
-
-        // --- Constants & Logic ---
-        const INFLATION_SCALERS = {
-            "2026-27": 1.074, "2027-28": 1.127, "2028-29": 1.184, "2029-30": 1.240, "2030-31": 1.305
-        };
-
-        const getDarkoLabel = (darko) => {
-            if (darko >= 6.0) return "MVP Level";
-            if (darko >= 4.0) return "All-NBA";
-            if (darko >= 2.0) return "All-Star";
-            if (darko >= 1.0) return "Quality Starter";
-            if (darko >= -0.9) return "Average Player";
-            if (darko >= -2.0) return "Bench";
-            return "Replacement Level";
-        };
+        const { NBASalaryCalculator } = window.NBASalaryModel;
         
-        //aging curve
-        const getAgingDelta = (age) => {
-            if (age < 21) return 0.65;
-            if (age < 22) return 0.5;
-            if (age < 23) return 0.45;
-            if (age < 24) return 0.40;
-            if (age < 27) return 0.10;
-            if (age < 29) return 0;
-            if (age < 30) return -0.05;
-            if (age < 31) return -0.1;
-            if (age < 32) return -0.2;
-            if (age < 33) return -0.3;
-            if (age < 34) return -0.45;
-            if (age < 35) return -0.65;
-            if (age < 36) return -0.9;
-            return -1.2;
-        };
-
-        const calculateSalary = (games, minutes, darko, adjustment) => {
-            const adjustedDarko = darko + adjustment;
-            let salary = (games * minutes / 1475 * (adjustedDarko + 3.0)) * 4.32;
-            const boostFactor = Math.pow(Math.abs(adjustedDarko) / 4, 1.2) * 0.10;
-            const cappedBoost = Math.min(boostFactor, 0.10);
-
-            if (adjustedDarko > 0) {
-                salary = salary * (1 + cappedBoost);
-            } else if (adjustedDarko < 0) {
-                salary = salary * (1 - cappedBoost);
-            }
-            
-            if (salary < 3.0) return "Minimum Salary";
-            return salary.toFixed(1);
-        };
-
-        const NBASalaryCalculator = () => {
-            const [comparisons, setComparisons] = useState([{
-                id: 1,
-                selectedPlayer: null,
-                games: 70,
-                minutes: 30,
-                improvement: 0,
-                searchTerm: '',
-                showDropdown: false
-            }]);
-
-            const addComparison = () => {
-                setComparisons([...comparisons, {
-                    id: Date.now(),
-                    selectedPlayer: null,
-                    games: 70,
-                    minutes: 30,
-                    improvement: 0,
-                    searchTerm: '',
-                    showDropdown: false
-                }]);
-            };
-
-            const removeComparison = (id) => {
-                if (comparisons.length > 1) {
-                    setComparisons(comparisons.filter(c => c.id !== id));
-                }
-            };
-
-            const updateComparison = (id, field, value) => {
-                setComparisons(comparisons.map(c => 
-                    c.id === id ? { ...c, [field]: value } : c
-                ));
-            };
-
-            const selectPlayer = (id, player) => {
-                setComparisons(comparisons.map(c => 
-                    c.id === id ? { 
-                        ...c, 
-                        selectedPlayer: player,
-                        searchTerm: player.name,
-                        showDropdown: false
-                    } : c
-                ));
-            };
-
-            const getFilteredPlayers = (searchTerm) => {
-                if (!searchTerm) return [];
-                return PLAYER_DATA.filter(p => 
-                    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-                ).slice(0, 10);
-            };
-
-            return (
-                <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
-                    <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-2">NBA Salary Model</h1>
-                        <p className="text-gray-600">Calculate contract value based on <a href="https://apanalytics.shinyapps.io/DARKO/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">DARKO</a> and custom minutes projection.</p>
-                        <p className="text-xs text-gray-500 mt-2">
-                            Salary model created by <a href="https://bsky.app/profile/stephnoh.bsky.social" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">Steph Noh</a>. DARKO last updated 1/28/26. Methodology <a href="https://github.com/StephenNoh/nbasalarymodel/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline">here</a>.
-                        </p>
-                    </div>
-
-                    <div className="player-grid">
-                        {comparisons.map((comp, index) => (
-                            <div key={comp.id} className="bg-white rounded-lg shadow-lg p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-lg font-semibold text-gray-700">Player {index + 1}</h2>
-                                    {comparisons.length > 1 && (
-                                        <button 
-                                            onClick={() => removeComparison(comp.id)}
-                                            className="text-red-500 hover:text-red-700"
-                                        >
-                                            <Trash2 size={20} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="mb-4 relative">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Player Name</label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={comp.searchTerm}
-                                            onChange={(e) => {
-                                                setComparisons(comparisons.map(c => 
-                                                    c.id === comp.id ? { 
-                                                        ...c, 
-                                                        searchTerm: e.target.value,
-                                                        showDropdown: true,
-                                                        selectedPlayer: null
-                                                    } : c
-                                                ));
-                                            }}
-                                            onFocus={() => updateComparison(comp.id, 'showDropdown', true)}
-                                            placeholder="Start typing player name..."
-                                            className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                        <div className="absolute left-3 top-2.5 text-gray-400">
-                                            <Search size={20} />
-                                        </div>
-                                    </div>
-                                    
-                                    {comp.showDropdown && comp.searchTerm && !comp.selectedPlayer && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {getFilteredPlayers(comp.searchTerm).map(player => (
-                                                <button
-                                                    key={player.name}
-                                                    onClick={() => selectPlayer(comp.id, player)}
-                                                    className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100"
-                                                >
-                                                    <div className="font-medium">{player.name}</div>
-                                                    <div className="text-sm text-gray-500">DARKO: {player.darko}</div>
-                                                </button>
-                                            ))}
-                                            {getFilteredPlayers(comp.searchTerm).length === 0 && (
-                                                <div className="px-4 py-2 text-gray-500">No players found</div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {comp.selectedPlayer && (
-                                    <>
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Estimate games played (1-82): {comp.games}</label>
-                                            <input
-                                                type="range" min="1" max="82"
-                                                value={comp.games}
-                                                onChange={(e) => updateComparison(comp.id, 'games', parseInt(e.target.value))}
-                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Estimate minutes per game (0-48): {comp.minutes}</label>
-                                            <input
-                                                type="range" min="0" max="48"
-                                                value={comp.minutes}
-                                                onChange={(e) => updateComparison(comp.id, 'minutes', parseInt(e.target.value))}
-                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-
-                                        <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">I know ball better than DARKO. I'm going to adjust DARKO by: {comp.improvement > 0 ? '+' : ''}{comp.improvement}</label>
-                                            <input
-                                                type="range" min="-5" max="5" step="0.1"
-                                                value={comp.improvement}
-                                                onChange={(e) => updateComparison(comp.id, 'improvement', parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                            <div className="mt-3 p-2 bg-gray-100 rounded text-sm">
-                                                <div>Actual DARKO: <span className="font-semibold">{comp.selectedPlayer.darko.toFixed(1)}</span> ({getDarkoLabel(comp.selectedPlayer.darko)})</div>
-                                                <div>Adjusted DARKO: <span className="font-semibold">{(comp.selectedPlayer.darko + comp.improvement).toFixed(1)}</span> ({getDarkoLabel(comp.selectedPlayer.darko + comp.improvement)})</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
-                                            <div className="text-xs font-bold text-blue-800 uppercase tracking-widest mb-2 border-b border-blue-100 pb-1">
-                                                {comp.selectedPlayer.name}
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-blue-200">
-                                                <div>
-                                                    <div className="text-sm text-gray-600 mb-1">Projected Value (25-26)</div>
-                                                    <div className="text-3xl font-bold text-blue-600">
-                                                        {calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement) === "Minimum Salary" 
-                                                            ? "Min"
-                                                            : `$${calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement)}M`
-                                                        }
-                                                    </div>
-                                                </div>
-                                                <div className="pt-4 md:pt-0 md:pl-4">
-                                                    <div className="text-sm text-gray-600 mb-1">Actual Salary (25-26)</div>
-                                                    <div className="text-3xl font-bold text-gray-700">
-                                                        {comp.selectedPlayer.actualSalary && comp.selectedPlayer.actualSalary > 0 
-                                                            ? `$${comp.selectedPlayer.actualSalary.toFixed(1)}M` 
-                                                            : "Free Agent"
-                                                        }
-                                                    </div>
-                                                    {(() => {
-                                                        const projected = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
-                                                        if (!comp.selectedPlayer.actualSalary) return null;
-                                                        const projValNum = projected === "Minimum Salary" ? 0 : parseFloat(projected);
-                                                        const diff = projValNum - comp.selectedPlayer.actualSalary;
-                                                        return (
-                                                            <div className={`text-sm font-medium mt-1 ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}M surplus
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-
-                                            {(() => {
-                                                let runningTotalSurplus = 0;
-                                                const currentProj = calculateSalary(comp.games, comp.minutes, comp.selectedPlayer.darko, comp.improvement);
-                                                if (comp.selectedPlayer.actualSalary) {
-                                                    const currentProjNum = currentProj === "Minimum Salary" ? 0 : parseFloat(currentProj);
-                                                    runningTotalSurplus = currentProjNum - comp.selectedPlayer.actualSalary;
-                                                }
-
-                                                const futureYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-                                                const rows = futureYears.map((seasonLabel, idx) => {
-                                                    const yearOffset = idx + 1;
-                                                    const projectedAge = comp.selectedPlayer.age + yearOffset;
-                                                    let cumulativeDelta = 0;
-                                                    for (let i = 0; i < yearOffset; i++) {
-                                                        cumulativeDelta += getAgingDelta(comp.selectedPlayer.age + i);
-                                                    }
-
-                                                    const currentProjectedDarko = comp.selectedPlayer.darko + comp.improvement + cumulativeDelta;
-                                                    const rawMarketValue = calculateSalary(comp.games, comp.minutes, currentProjectedDarko, 0);
-                                                    
-                                                    let inflatedValueNum = 0;
-                                                    let projectedMarketValueLabel;
-
-                                                    if (rawMarketValue === "Minimum Salary") {
-                                                        projectedMarketValueLabel = "Min";
-                                                        inflatedValueNum = 0; 
-                                                    } else {
-                                                        inflatedValueNum = parseFloat(rawMarketValue) * (INFLATION_SCALERS[seasonLabel] || 1);
-                                                        projectedMarketValueLabel = `$${inflatedValueNum.toFixed(1)}M`;
-                                                    }
-
-                                                    const actualFutureSal = comp.selectedPlayer.futureSalaries?.[seasonLabel];
-                                                    const yearlySurplus = actualFutureSal ? (inflatedValueNum - actualFutureSal) : 0;
-                                                    if (actualFutureSal) runningTotalSurplus += yearlySurplus;
-
-                                                    return (
-                                                        <div key={seasonLabel} className="grid grid-cols-12 items-center border-b border-blue-100 py-2 last:border-0 gap-0">
-                                                            <span className="col-span-4 text-gray-600 font-medium text-sm whitespace-nowrap">
-                                                                {seasonLabel} <span className="text-xs opacity-75">({Math.floor(projectedAge)})</span>
-                                                            </span>
-                                                            <span className="col-span-2 font-bold text-blue-700 text-center text-sm">
-                                                                {projectedMarketValueLabel}
-                                                            </span>
-                                                            <span className="col-span-4 text-gray-500 italic text-center text-xs whitespace-nowrap">
-                                                                {actualFutureSal ? `$${Number(actualFutureSal).toFixed(1)}M` : "Free Agent"}
-                                                            </span>
-                                                            <span className="col-span-2 text-right whitespace-nowrap text-sm">
-                                                                {actualFutureSal && (
-                                                                    <span className={`font-bold ${yearlySurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                        {yearlySurplus > 0 ? '+' : ''}{yearlySurplus.toFixed(1)}M
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                });
-
-                                                return (
-                                                    <div className="mt-6 border-t pt-4">
-                                                        <h3 className="text-lg font-bold text-gray-800 mb-3">Multi-Year Projections</h3>
-                                                        <div className="grid grid-cols-12 text-xs font-bold text-blue-800 uppercase tracking-wider mb-1 pb-1 border-b border-blue-200">
-                                                            <span className="col-span-4">Season (Age)</span>
-                                                            <span className="col-span-2 text-center">Proj.</span>
-                                                            <span className="col-span-4 text-center">Actual</span>
-                                                            <span className="col-span-2 text-right">Surplus</span>
-                                                        </div>
-                                                        <div className="space-y-0">
-                                                            {rows}
-                                                            <div className="mt-2 p-2 bg-blue-50 rounded flex justify-between items-center">
-                                                                <span className="text-xs font-bold text-blue-900 uppercase">Total Contract Surplus</span>
-                                                                <span className={`text-base font-bold ${runningTotalSurplus > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                    {runningTotalSurplus > 0 ? '+' : ''}{runningTotalSurplus.toFixed(1)}M
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-6 text-center">
-                        <button
-                            onClick={addComparison}
-                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium shadow-lg"
-                        >
-                            <Plus size={20} />
-                            Add Player Comparison
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        ReactDOM.render(<NBASalaryCalculator />, document.getElementById('root'));
+        ReactDOM.render(
+            <NBASalaryCalculator />,
+            document.getElementById('root')
+        );
     </script>
 </body>
 </html>
